@@ -1,0 +1,67 @@
+name: Deploy to Synology NAS
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image for ARM64
+      run: |
+        docker buildx build --platform linux/arm64 -t shechill-analysis:latest . --load
+
+    - name: Save Docker image
+      run: |
+        docker save shechill-analysis:latest | gzip > shechill-analysis.tar.gz
+
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh/
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.NAS_HOST }} >> ~/.ssh/known_hosts
+
+    - name: Copy Docker image to NAS
+      run: |
+        scp shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/tmp/
+
+    - name: Deploy to NAS
+      run: |
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'EOF'
+          # Load Docker image
+          cd /tmp
+          bash -l -c 'docker load < shechill-analysis.tar.gz'
+          
+          # Stop existing container if running
+          bash -l -c 'docker stop shechill-analysis || true'
+          bash -l -c 'docker rm shechill-analysis || true'
+          
+          # Run new container
+          bash -l -c 'docker run -d --name shechill-analysis --restart unless-stopped -p 8000:8000 shechill-analysis:latest'
+          
+          # Cleanup
+          rm -f shechill-analysis.tar.gz
+          
+          # Show running containers
+          bash -l -c 'docker ps'
+        EOF
+
+    - name: Verify deployment
+      run: |
+        sleep 10
+        curl -f http://${{ secrets.NAS_HOST }}:8000 || exit 1
+
+    - name: Clean up
+      run: |
+        rm -f ~/.ssh/id_rsa
