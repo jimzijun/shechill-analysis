@@ -31,7 +31,7 @@ jobs:
 
     - name: Copy Docker image to NAS
       run: |
-        scp shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/tmp/
+        scp -O shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/tmp/
 
     - name: Deploy to NAS
       run: |
