@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Shechill Patisserie Forecasting{% endblock %}
+
+{% block header_stats %}
+<div>{{ total_items }} Items</div>
+<div>Prophet Forecasting</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-box {
+        width: 100%;
+        max-width: 400px;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+        margin-bottom: 30px;
+    }
+    
+    .search-box:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    }
+    
+    .plots-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+    
+    .plot-card {
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+    }
+    
+    .plot-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    }
+    
+    .plot-image {
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .plot-info {
+        padding: 12px;
+    }
+    
+    .plot-title {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0;
+        font-size: 14px;
+    }
+    
+    .plot-meta {
+        color: #6c757d;
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+    
+    .loading {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+    
+    .controls {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+    }
+    
+    .view-toggle {
+        display: flex;
+        background: white;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        overflow: hidden;
+    }
+    
+    .view-btn {
+        padding: 8px 16px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #6c757d;
+        transition: all 0.2s;
+    }
+    
+    .view-btn.active {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .view-btn:hover {
+        background-color: #e7f3ff;
+        color: #007bff;
+    }
+    
+    .view-btn.active:hover {
+        background-color: #0056b3;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="alert">
+    <strong>Dashboard Overview:</strong> View forecasting plots for all bakery items. Each plot shows historical sales data with Prophet forecasting and confidence intervals. Click on any item to see detailed analysis.
+</div>
+
+<div class="controls">
+    <input type="text" id="searchBox" class="search-box" placeholder="Search items (e.g. 'croissant', 'latte', 'tart')...">
+    
+    <div class="view-toggle">
+        <button class="view-btn active" data-view="grid">Grid View</button>
+        <button class="view-btn" data-view="list">List View</button>
+    </div>
+</div>
+
+<div id="plotsContainer">
+    {% if plots %}
+    <div class="plots-grid" id="plotsGrid">
+        {% for plot in plots %}
+        <div class="plot-card" onclick="viewPlot('{{ plot.item_name }}', '{{ plot.filename }}')" data-item="{{ plot.item_name.lower() }}">
+            <img src="{{ url_for('serve_plot', filename=plot.filename) }}" alt="{{ plot.item_name }}" class="plot-image" loading="lazy">
+            <div class="plot-info">
+                <div class="plot-title">{{ plot.item_name }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-results">
+        <h3>No plots available</h3>
+        <p>No forecasting plots found in the reports directory.</p>
+    </div>
+    {% endif %}
+</div>
+
+<div id="noResults" class="no-results" style="display: none;">
+    <h3>No items found</h3>
+    <p>Try adjusting your search terms.</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let allPlots = {{ plots|tojson }};
+    
+    // Search functionality
+    document.getElementById('searchBox').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const plotsGrid = document.getElementById('plotsGrid');
+        const noResults = document.getElementById('noResults');
+        const cards = document.querySelectorAll('.plot-card');
+        
+        let visibleCount = 0;
+        
+        cards.forEach(card => {
+            const itemName = card.getAttribute('data-item');
+            if (itemName.includes(searchTerm)) {
+                card.style.display = 'block';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        if (visibleCount === 0) {
+            plotsGrid.style.display = 'none';
+            noResults.style.display = 'block';
+        } else {
+            plotsGrid.style.display = 'grid';
+            noResults.style.display = 'none';
+        }
+    });
+    
+    // View toggle
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            const view = this.getAttribute('data-view');
+            const plotsGrid = document.getElementById('plotsGrid');
+            
+            if (view === 'list') {
+                plotsGrid.style.gridTemplateColumns = '1fr';
+            } else {
+                plotsGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(320px, 1fr))';
+            }
+        });
+    });
+    
+    // Plot viewing
+    function viewPlot(itemName, filename) {
+        const itemSlug = itemName.toLowerCase().replace(/\s+/g, '_');
+        window.location.href = `{{ url_for('item_detail', item_slug='') }}${itemSlug}`;
+    }
+    
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            document.getElementById('searchBox').focus();
+        }
+    });
+    
+    // Add loading states for images
+    document.querySelectorAll('.plot-image').forEach(img => {
+        img.addEventListener('load', function() {
+            this.style.opacity = '1';
+        });
+        
+        img.addEventListener('error', function() {
+            this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMyMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMjAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjE2MCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCI+UGxvdCBOb3QgRm91bmQ8L3RleHQ+Cjwvc3ZnPg==';
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Shechill Patisserie Forecasting{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+        
+        header {
+            background: white;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        
+        .nav-link {
+            color: #007bff;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        
+        .nav-link:hover {
+            background-color: #e7f3ff;
+            text-decoration: none;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background-color: #0056b3;
+            text-decoration: none;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        
+        .alert {
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+            background-color: #e7f3ff;
+            color: #004085;
+        }
+        
+        footer {
+            margin-top: 60px;
+            padding: 20px 0;
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9em;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div>
+                <h1>
+                    <a href="{{ url_for('index') }}" style="color: inherit; text-decoration: none;">
+                        Shechill Patisserie Forecasting
+                    </a>
+                </h1>
+                <div class="subtitle">Sales Analysis & Prophet Forecasting Dashboard</div>
+            </div>
+            <div class="stats">
+                {% block header_stats %}{% endblock %}
+            </div>
+        </div>
+    </header>
+    
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    
+    <footer>
+        <p>&copy; 2024 Shechill Patisserie | Powered by Prophet Forecasting</p>
+    </footer>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

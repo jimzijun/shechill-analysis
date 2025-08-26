@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plot.item_name }} | Shechill Patisserie Forecasting{% endblock %}
+
+{% block header_stats %}
+<div>Individual Analysis</div>
+<div>Prophet Forecasting</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .breadcrumb {
+        margin-bottom: 20px;
+        color: #6c757d;
+    }
+    
+    .breadcrumb a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+    
+    .item-header {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+        text-align: center;
+    }
+    
+    .item-title {
+        font-size: 2.5em;
+        color: #2c3e50;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+    
+    .item-subtitle {
+        color: #6c757d;
+        font-size: 1.1em;
+    }
+    
+    .plot-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-bottom: 30px;
+    }
+    
+    .plot-header {
+        padding: 20px;
+        border-bottom: 1px solid #e9ecef;
+        background-color: #f8f9fa;
+    }
+    
+    .plot-image {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    
+    .analysis-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+    }
+    
+    .analysis-card {
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .analysis-title {
+        font-size: 1.2em;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .insight-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f1f1;
+    }
+    
+    .insight-item:last-child {
+        border-bottom: none;
+    }
+    
+    .insight-label {
+        font-weight: 500;
+        color: #2c3e50;
+    }
+    
+    .insight-value {
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    
+    .actions {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 30px;
+        flex-wrap: wrap;
+    }
+    
+    .zoom-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: flex;
+        gap: 5px;
+        background: rgba(255,255,255,0.9);
+        border-radius: 4px;
+        padding: 5px;
+    }
+    
+    .zoom-btn {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .zoom-btn:hover {
+        background-color: #f8f9fa;
+        border-color: #007bff;
+    }
+    
+    .plot-wrapper {
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.9);
+    }
+    
+    .modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 95%;
+        max-height: 95%;
+    }
+    
+    .modal img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+    
+    .close {
+        position: absolute;
+        top: 15px;
+        right: 35px;
+        color: #f1f1f1;
+        font-size: 40px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .close:hover {
+        color: #bbb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb">
+    <a href="{{ url_for('index') }}">Dashboard</a> / {{ plot.item_name }}
+</nav>
+
+<div class="item-header">
+    <h1 class="item-title">{{ plot.item_name }}</h1>
+    <p class="item-subtitle">Sales Analysis with Prophet Forecasting</p>
+</div>
+
+<div class="plot-container">
+    <div class="plot-header">
+        <h3>📊 Weekday Sales Pattern with Forecasting</h3>
+        <p>Historical data (blue line) with Prophet forecasting (red dashed) and 80% confidence intervals (shaded area)</p>
+    </div>
+    <div class="plot-wrapper">
+        <img src="{{ url_for('serve_plot', filename=plot.filename) }}" alt="{{ plot.item_name }} Sales Plot" class="plot-image" id="mainPlot">
+        <div class="zoom-controls">
+            <button class="zoom-btn" onclick="openModal()" title="Full Screen View">🔍</button>
+            <button class="zoom-btn" onclick="downloadPlot()" title="Download Plot">⬇️</button>
+        </div>
+    </div>
+</div>
+
+<div class="analysis-grid">
+    <div class="analysis-card">
+        <h3 class="analysis-title">
+            📈 Forecasting Insights
+        </h3>
+        <div class="insight-item">
+            <div class="insight-label">Model Type</div>
+            <div class="insight-value">Facebook Prophet with 80% confidence intervals</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Forecast Period</div>
+            <div class="insight-value">Next 4 periods (F+1 to F+4) for each weekday</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Data Filtering</div>
+            <div class="insight-value">Smart zero-handling: excludes pre-introduction periods</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Confidence Level</div>
+            <div class="insight-value">80% prediction intervals shown as shaded areas</div>
+        </div>
+    </div>
+    
+    <div class="analysis-card">
+        <h3 class="analysis-title">
+            📅 Weekday Analysis
+        </h3>
+        <div class="insight-item">
+            <div class="insight-label">Tuesday Pattern</div>
+            <div class="insight-value">View trend and forecast for Tuesday sales</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Wednesday Pattern</div>
+            <div class="insight-value">Mid-week performance analysis</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Weekend Performance</div>
+            <div class="insight-value">Friday-Sunday sales patterns and forecasting</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Monday</div>
+            <div class="insight-value">Excluded (bakery closed)</div>
+        </div>
+    </div>
+    
+    <div class="analysis-card">
+        <h3 class="analysis-title">
+            🎯 Key Features
+        </h3>
+        <div class="insight-item">
+            <div class="insight-label">Historical Data</div>
+            <div class="insight-value">Complete sales history with date labels (M/D format)</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Trend Detection</div>
+            <div class="insight-value">Prophet identifies seasonality and trends automatically</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Uncertainty Quantification</div>
+            <div class="insight-value">Confidence bands help assess forecast reliability</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Business Logic</div>
+            <div class="insight-value">Excludes seasonal items and holiday specials</div>
+        </div>
+    </div>
+    
+    <div class="analysis-card">
+        <h3 class="analysis-title">
+            💡 Usage Tips
+        </h3>
+        <div class="insight-item">
+            <div class="insight-label">Inventory Planning</div>
+            <div class="insight-value">Use forecast values for next week's preparation</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Confidence Intervals</div>
+            <div class="insight-value">Wider bands = higher uncertainty, plan accordingly</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Trend Analysis</div>
+            <div class="insight-value">Look for upward/downward trends in recent data</div>
+        </div>
+        <div class="insight-item">
+            <div class="insight-label">Weekday Comparison</div>
+            <div class="insight-value">Compare performance across different days</div>
+        </div>
+    </div>
+</div>
+
+<div class="actions">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">← Back to Dashboard</a>
+    <a href="{{ url_for('serve_plot', filename=plot.filename) }}" target="_blank" class="btn">View Full Size</a>
+    <button onclick="downloadPlot()" class="btn">Download Plot</button>
+</div>
+
+<!-- Modal for full-screen view -->
+<div id="imageModal" class="modal">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <div class="modal-content">
+        <img id="modalImage" src="">
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openModal() {
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        const plotImg = document.getElementById('mainPlot');
+        
+        modal.style.display = 'block';
+        modalImg.src = plotImg.src;
+    }
+    
+    function closeModal() {
+        document.getElementById('imageModal').style.display = 'none';
+    }
+    
+    function downloadPlot() {
+        const link = document.createElement('a');
+        link.href = '{{ url_for("serve_plot", filename=plot.filename) }}';
+        link.download = '{{ plot.item_name }}_forecast_plot.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    
+    // Close modal when clicking outside the image
+    document.getElementById('imageModal').onclick = function(event) {
+        if (event.target === this) {
+            closeModal();
+        }
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
+        if (e.key === 'f' || e.key === 'F') {
+            openModal();
+        }
+    });
+</script>
+{% endblock %}
