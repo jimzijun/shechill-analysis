@@ -88,7 +88,7 @@ resource "null_resource" "container_deploy" {
       type        = "ssh"
       user        = var.ssh_user
       host        = var.nas_host
-      private_key = file(var.ssh_private_key_path)
+      private_key = var.ssh_private_key
     }
 
     inline = [
