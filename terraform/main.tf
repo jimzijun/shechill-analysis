@@ -83,14 +83,15 @@ resource "null_resource" "container_deploy" {
     deployment_id = null_resource.docker_deploy.id
   }
 
-  connection {
-    type        = "ssh"
-    user        = var.ssh_user
-    host        = var.nas_host
-    private_key = var.ssh_private_key
-  }
-
   provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = var.ssh_user
+      host        = var.nas_host
+      private_key = var.ssh_private_key
+      script_path = "/home/${var.ssh_user}/terraform_%RAND%.sh"
+    }
+
     script = "${path.module}/deploy_script.sh"
   }
 }
