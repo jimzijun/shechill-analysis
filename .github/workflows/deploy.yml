@@ -14,13 +14,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Build Docker image (native ARM64)
-      run: |
-        docker build -t shechill-analysis:latest .
-
-    - name: Save Docker image
-      run: |
-        docker save shechill-analysis:latest | gzip > shechill-analysis.tar.gz
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ~1.0
 
     - name: Setup SSH
       run: |
@@ -29,35 +26,28 @@ jobs:
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ secrets.NAS_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Copy Docker image to NAS
+    - name: Terraform Init
       run: |
-        scp -O shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/tmp/
+        cd terraform
+        terraform init
 
-    - name: Deploy to NAS
+    - name: Terraform Plan
       run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'EOF'
-          # Load Docker image
-          cd /tmp
-          bash -l -c 'docker load < shechill-analysis.tar.gz'
-          
-          # Stop existing container if running
-          bash -l -c 'docker stop shechill-analysis || true'
-          bash -l -c 'docker rm shechill-analysis || true'
-          
-          # Run new container
-          bash -l -c 'docker run -d --name shechill-analysis --restart unless-stopped -p 8000:8000 shechill-analysis:latest'
-          
-          # Cleanup
-          rm -f shechill-analysis.tar.gz
-          
-          # Show running containers
-          bash -l -c 'docker ps'
-        EOF
+        cd terraform
+        terraform plan \
+          -var="nas_host=${{ secrets.NAS_HOST }}" \
+          -var="ssh_user=${{ secrets.SSH_USER }}" \
+          -var="ssh_private_key=${{ secrets.SSH_PRIVATE_KEY }}"
 
-    - name: Verify deployment
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/main'
       run: |
-        sleep 10
-        curl -f http://${{ secrets.NAS_HOST }}:8000 || exit 1
+        cd terraform
+        terraform apply \
+          -var="nas_host=${{ secrets.NAS_HOST }}" \
+          -var="ssh_user=${{ secrets.SSH_USER }}" \
+          -var="ssh_private_key=${{ secrets.SSH_PRIVATE_KEY }}" \
+          -auto-approve
 
     - name: Clean up
       run: |
