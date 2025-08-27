@@ -1,6 +1,10 @@
 terraform {
   required_version = ">= 1.0"
   required_providers {
+    synology = {
+      source  = "synology-community/synology"
+      version = "~> 1.0"
+    }
     null = {
       source  = "hashicorp/null"
       version = "~> 3.0"
@@ -14,13 +18,13 @@ variable "nas_host" {
   type        = string
 }
 
-variable "ssh_user" {
-  description = "SSH user for NAS access"
+variable "nas_username" {
+  description = "Synology NAS admin username"
   type        = string
 }
 
-variable "ssh_private_key" {
-  description = "SSH private key content"
+variable "nas_password" {
+  description = "Synology NAS admin password"
   type        = string
   sensitive   = true
 }
@@ -43,6 +47,15 @@ variable "image_name" {
   default     = "shechill-analysis:latest"
 }
 
+# Configure Synology provider
+provider "synology" {
+  host     = var.nas_host
+  username = var.nas_username
+  password = var.nas_password
+  https    = true
+  port     = 5001
+}
+
 # Docker image build
 resource "null_resource" "docker_build" {
   triggers = {
@@ -55,53 +68,35 @@ resource "null_resource" "docker_build" {
   }
 }
 
-# Docker image save and transfer
-resource "null_resource" "docker_deploy" {
+# Deploy container using Synology Container Manager
+resource "synology_container_project" "shechill_analysis" {
   depends_on = [null_resource.docker_build]
-
-  triggers = {
-    image_id = null_resource.docker_build.id
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      cd ..
-      docker save ${var.image_name} | gzip > /tmp/shechill-analysis.tar.gz
-      echo '${var.ssh_private_key}' > /tmp/terraform_key
-      chmod 600 /tmp/terraform_key
-      scp -o StrictHostKeyChecking=no -i /tmp/terraform_key /tmp/shechill-analysis.tar.gz ${var.ssh_user}@${var.nas_host}:/tmp/
-      rm -f /tmp/shechill-analysis.tar.gz /tmp/terraform_key
-    EOT
-  }
-}
-
-# Container deployment on NAS
-resource "null_resource" "container_deploy" {
-  depends_on = [null_resource.docker_deploy]
-
-  triggers = {
-    deployment_id = null_resource.docker_deploy.id
-  }
-
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = var.ssh_user
-      host        = var.nas_host
-      private_key = var.ssh_private_key
-      script_path = "/home/${var.ssh_user}/terraform_%RAND%.sh"
+  
+  name = var.container_name
+  
+  compose_content = yamlencode({
+    version = "3.8"
+    services = {
+      "${var.container_name}" = {
+        image         = var.image_name
+        container_name = var.container_name
+        restart       = "unless-stopped"
+        ports = [
+          "${var.container_port}:${var.container_port}"
+        ]
+      }
     }
-
-    script = "${path.module}/deploy_script.sh"
-  }
+  })
+  
+  force_recreate = true
 }
 
 # Health check
 resource "null_resource" "health_check" {
-  depends_on = [null_resource.container_deploy]
+  depends_on = [synology_container_project.shechill_analysis]
 
   triggers = {
-    container_id = null_resource.container_deploy.id
+    container_id = synology_container_project.shechill_analysis.id
   }
 
   provisioner "local-exec" {

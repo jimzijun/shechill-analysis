@@ -17,37 +17,44 @@ terraform init
 ```bash
 terraform plan \
   -var="nas_host=your-nas-ip" \
-  -var="ssh_user=your-user" \
-  -var="ssh_private_key_path=~/.ssh/id_rsa"
+  -var="nas_username=your-username" \
+  -var="nas_password=your-password"
 ```
 
 ```bash
 terraform apply \
   -var="nas_host=your-nas-ip" \
-  -var="ssh_user=your-user" \
-  -var="ssh_private_key_path=~/.ssh/id_rsa"
+  -var="nas_username=your-username" \
+  -var="nas_password=your-password"
 ```
 
 ```bash
 terraform destroy \
   -var="nas_host=your-nas-ip" \
-  -var="ssh_user=your-user" \
-  -var="ssh_private_key_path=~/.ssh/id_rsa"
+  -var="nas_username=your-username" \
+  -var="nas_password=your-password"
 ```
 
 ## What it does
 
 The Terraform configuration:
 1. Builds the Docker image locally
-2. Transfers the image to your Synology NAS
-3. Deploys the container with proper restart policies
+2. Uses Synology Container Manager API to deploy containers
+3. Deploys using Docker Compose format via Synology provider
 4. Performs health checks
 5. Provides deployment status outputs
 
-## Benefits over GitHub Actions alone
+## Benefits over SSH-based deployment
 
+- **Native Synology integration**: Uses official Synology APIs
 - **State management**: Terraform tracks infrastructure state
 - **Idempotent**: Safe to run multiple times
-- **Rollback capability**: Easy to revert changes
-- **Local development**: Test deployments locally
+- **No SSH required**: Uses web API instead of shell access
+- **Container Manager integration**: Leverages Synology's container orchestration
 - **Infrastructure as code**: Version controlled infrastructure
+
+## Required GitHub Secrets
+
+- `NAS_HOST`: Your Synology NAS IP/hostname
+- `NAS_USERNAME`: Admin username for Synology NAS
+- `NAS_PASSWORD`: Admin password for Synology NAS

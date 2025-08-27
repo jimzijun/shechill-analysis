@@ -19,13 +19,6 @@ jobs:
       with:
         terraform_version: ~1.0
 
-    - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh/
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.NAS_HOST }} >> ~/.ssh/known_hosts
-
     - name: Terraform Init
       run: |
         cd terraform
@@ -36,8 +29,8 @@ jobs:
         cd terraform
         terraform plan \
           -var="nas_host=${{ secrets.NAS_HOST }}" \
-          -var="ssh_user=${{ secrets.SSH_USER }}" \
-          -var="ssh_private_key=${{ secrets.SSH_PRIVATE_KEY }}"
+          -var="nas_username=${{ secrets.NAS_USERNAME }}" \
+          -var="nas_password=${{ secrets.NAS_PASSWORD }}"
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main'
@@ -45,10 +38,6 @@ jobs:
         cd terraform
         terraform apply \
           -var="nas_host=${{ secrets.NAS_HOST }}" \
-          -var="ssh_user=${{ secrets.SSH_USER }}" \
-          -var="ssh_private_key=${{ secrets.SSH_PRIVATE_KEY }}" \
+          -var="nas_username=${{ secrets.NAS_USERNAME }}" \
+          -var="nas_password=${{ secrets.NAS_PASSWORD }}" \
           -auto-approve
-
-    - name: Clean up
-      run: |
-        rm -f ~/.ssh/id_rsa
