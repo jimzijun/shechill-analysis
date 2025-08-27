@@ -14,6 +14,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh/
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/synology_nas
+        chmod 600 ~/.ssh/synology_nas
+        ssh-keyscan -H ${{ secrets.NAS_HOST }} >> ~/.ssh/known_hosts
+
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
@@ -29,8 +36,7 @@ jobs:
         cd terraform
         terraform plan \
           -var="nas_host=${{ secrets.NAS_HOST }}" \
-          -var="nas_username=${{ secrets.NAS_USERNAME }}" \
-          -var="nas_password=${{ secrets.NAS_PASSWORD }}"
+          -var="nas_username=${{ secrets.SSH_USER }}"
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main'
@@ -38,6 +44,9 @@ jobs:
         cd terraform
         terraform apply \
           -var="nas_host=${{ secrets.NAS_HOST }}" \
-          -var="nas_username=${{ secrets.NAS_USERNAME }}" \
-          -var="nas_password=${{ secrets.NAS_PASSWORD }}" \
+          -var="nas_username=${{ secrets.SSH_USER }}" \
           -auto-approve
+
+    - name: Clean up
+      run: |
+        rm -f ~/.ssh/synology_nas
