@@ -83,24 +83,15 @@ resource "null_resource" "container_deploy" {
     deployment_id = null_resource.docker_deploy.id
   }
 
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = var.ssh_user
-      host        = var.nas_host
-      private_key = var.ssh_private_key
-    }
+  connection {
+    type        = "ssh"
+    user        = var.ssh_user
+    host        = var.nas_host
+    private_key = var.ssh_private_key
+  }
 
-    inline = [
-      "chmod +x /tmp/terraform_*.sh || true",
-      "cd /tmp",
-      "/bin/bash -l -c 'docker load < shechill-analysis.tar.gz'",
-      "/bin/bash -l -c 'docker stop ${var.container_name} || true'",
-      "/bin/bash -l -c 'docker rm ${var.container_name} || true'",
-      "/bin/bash -l -c 'docker run -d --name ${var.container_name} --restart unless-stopped -p ${var.container_port}:${var.container_port} ${var.image_name}'",
-      "rm -f shechill-analysis.tar.gz",
-      "/bin/bash -l -c 'docker ps | grep ${var.container_name}'"
-    ]
+  provisioner "remote-exec" {
+    script = "${path.module}/deploy_script.sh"
   }
 }
 
