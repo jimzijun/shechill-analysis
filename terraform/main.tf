@@ -49,11 +49,10 @@ variable "image_name" {
 
 # Configure Synology provider
 provider "synology" {
-  host     = var.nas_host
-  username = var.nas_username
-  password = var.nas_password
-  https    = true
-  port     = 5001
+  host            = "${var.nas_host}:5001"
+  user            = var.nas_username
+  password        = var.nas_password
+  skip_cert_check = true
 }
 
 # Docker image build
