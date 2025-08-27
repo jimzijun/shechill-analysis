@@ -3,7 +3,7 @@ terraform {
   required_providers {
     synology = {
       source  = "synology-community/synology"
-      version = "~> 1.0"
+      version = "~> 0.5"
     }
     null = {
       source  = "hashicorp/null"
