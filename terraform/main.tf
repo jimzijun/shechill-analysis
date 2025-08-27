@@ -92,13 +92,14 @@ resource "null_resource" "container_deploy" {
     }
 
     inline = [
+      "chmod +x /tmp/terraform_*.sh || true",
       "cd /tmp",
-      "bash -l -c 'docker load < shechill-analysis.tar.gz'",
-      "bash -l -c 'docker stop ${var.container_name} || true'",
-      "bash -l -c 'docker rm ${var.container_name} || true'",
-      "bash -l -c 'docker run -d --name ${var.container_name} --restart unless-stopped -p ${var.container_port}:${var.container_port} ${var.image_name}'",
+      "/bin/bash -l -c 'docker load < shechill-analysis.tar.gz'",
+      "/bin/bash -l -c 'docker stop ${var.container_name} || true'",
+      "/bin/bash -l -c 'docker rm ${var.container_name} || true'",
+      "/bin/bash -l -c 'docker run -d --name ${var.container_name} --restart unless-stopped -p ${var.container_port}:${var.container_port} ${var.image_name}'",
       "rm -f shechill-analysis.tar.gz",
-      "bash -l -c 'docker ps | grep ${var.container_name}'"
+      "/bin/bash -l -c 'docker ps | grep ${var.container_name}'"
     ]
   }
 }
