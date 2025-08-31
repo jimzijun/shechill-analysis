@@ -129,19 +129,42 @@ jobs:
 
     - name: Test Docker image
       run: |
-        docker run --rm --name test-container -d -p 8000:8000 shechill-analysis:ci-test
-        sleep 15
+        # Start container with required environment variable for testing
+        docker run --rm --name test-container -d -p 8000:8000 \
+          -e SQUARE_ACCESS_TOKEN=test_token_for_ci \
+          -e WEBAPP_PASSWORD=test_password \
+          shechill-analysis:ci-test
         
-        # Basic health check
-        if curl -f http://localhost:8000/ 2>/dev/null; then
-          echo "✅ Docker container is healthy"
-          docker stop test-container
-        else
-          echo "❌ Docker container health check failed"
-          docker logs test-container
-          docker stop test-container
-          exit 1
-        fi
+        echo "Container started, waiting for services to initialize..."
+        
+        # Wait longer and check container status periodically
+        for i in {1..6}; do
+          echo "Health check attempt $i/6..."
+          sleep 10
+          
+          # Check if container is still running
+          if ! docker ps --filter "name=test-container" --filter "status=running" | grep -q test-container; then
+            echo "❌ Container is not running. Checking logs..."
+            docker logs test-container 2>&1 || echo "Could not retrieve logs"
+            exit 1
+          fi
+          
+          # Test health endpoint
+          if curl -f -s http://localhost:8000/ >/dev/null 2>&1; then
+            echo "✅ Docker container is healthy"
+            docker stop test-container
+            exit 0
+          fi
+          
+          echo "Health check failed, retrying in 10 seconds..."
+        done
+        
+        # Final failure - show logs and exit
+        echo "❌ Docker container health check failed after all attempts"
+        echo "Container logs:"
+        docker logs test-container 2>&1 || echo "Could not retrieve logs"
+        docker stop test-container 2>/dev/null || true
+        exit 1
 
     - name: Move cache
       run: |
