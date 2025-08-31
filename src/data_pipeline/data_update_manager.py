@@ -73,7 +73,7 @@ class DataUpdateManager:
         """Get detailed initialization status"""
         raw_data_dir = self.data_dir / "raw_transactions"
 
-        status = {
+        status: Dict[str, Any] = {
             "is_initialized": self.is_app_initialized(),
             "raw_data_dir_exists": raw_data_dir.exists(),
             "transaction_files_count": 0,
