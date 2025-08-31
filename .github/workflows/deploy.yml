@@ -33,9 +33,10 @@ jobs:
           echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
         fi
 
-    - name: Verify Docker build
+    - name: Build and export Docker image
       run: |
         docker build -t ${{ env.CONTAINER_NAME }}:${{ steps.version.outputs.version }} .
+        docker save ${{ env.CONTAINER_NAME }}:${{ steps.version.outputs.version }} | gzip > shechill-analysis.tar.gz
 
     - name: Setup SSH
       run: |
@@ -81,6 +82,10 @@ jobs:
             echo "No running container to backup"
           fi
         ENDSSH
+
+    - name: Transfer Docker image to NAS
+      run: |
+        scp -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/tmp/
 
     - name: Terraform Apply
       id: deploy
@@ -167,6 +172,7 @@ jobs:
       if: always()
       run: |
         rm -f ~/.ssh/synology_nas
+        rm -f shechill-analysis.tar.gz
 
     - name: Deployment Summary
       if: always()

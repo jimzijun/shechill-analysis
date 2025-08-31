@@ -50,20 +50,10 @@ resource "null_resource" "docker_build_and_deploy" {
     source_hash     = md5(join("", [for f in fileset("../", "**/*.py") : filemd5("../${f}")]))
   }
 
-  # Build image locally
-  provisioner "local-exec" {
-    command = "cd .. && docker build -t ${var.image_name} ."
-  }
+  # Note: Docker image is now built by GitHub Actions workflow
   
-  # Save and transfer image
-  provisioner "local-exec" {
-    command = <<-EOT
-      cd ..
-      docker save ${var.image_name} | gzip > /tmp/shechill-analysis.tar.gz
-      scp -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no /tmp/shechill-analysis.tar.gz ${var.nas_username}@${var.nas_host}:/tmp/
-      rm -f /tmp/shechill-analysis.tar.gz
-    EOT
-  }
+  # Note: Docker image is now transferred by GitHub Actions workflow
+  # The image archive should already be available at /tmp/shechill-analysis.tar.gz on the NAS
   
   # Deploy container on NAS
   provisioner "local-exec" {
