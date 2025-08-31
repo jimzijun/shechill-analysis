@@ -10,7 +10,7 @@ Handles loading from config/app_config.json with defaults and validation.
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pytz
 
@@ -21,7 +21,7 @@ class ConfigManager:
     def __init__(self, config_file: str = "config/app_config.json"):
         """Initialize config manager with config file path"""
         self.config_file = Path(config_file)
-        self._config = None
+        self._config: Optional[Dict[str, Any]] = None
         self._load_config()
 
     def _load_config(self):
@@ -69,23 +69,31 @@ class ConfigManager:
     @property
     def business_start_date(self) -> datetime:
         """Get business start date as datetime object"""
+        if self._config is None:
+            raise ValueError("Configuration not loaded")
         start_date_str = self._config["business"]["start_date"]
         return datetime.strptime(start_date_str, "%Y-%m-%d")
 
     @property
     def business_timezone(self) -> pytz.BaseTzInfo:
         """Get business timezone as pytz timezone object"""
+        if self._config is None:
+            raise ValueError("Configuration not loaded")
         tz_str = self._config["business"]["timezone"]
         return pytz.timezone(tz_str)
 
     @property
     def business_name(self) -> str:
         """Get business name"""
+        if self._config is None:
+            raise ValueError("Configuration not loaded")
         return self._config["business"]["name"]
 
     @property
     def incremental_overlap_hours(self) -> int:
         """Get incremental overlap hours for safety"""
+        if self._config is None:
+            raise ValueError("Configuration not loaded")
         return self._config["data_fetch"]["incremental_overlap_hours"]
 
     def get(self, key_path: str, default: Any = None) -> Any:
@@ -93,8 +101,11 @@ class ConfigManager:
         Get config value using dot notation (e.g., 'business.start_date')
         Returns default if key not found
         """
+        if self._config is None:
+            return default
+
         keys = key_path.split(".")
-        value = self._config
+        value: Any = self._config
 
         try:
             for key in keys:
@@ -105,6 +116,8 @@ class ConfigManager:
 
     def get_all(self) -> Dict[str, Any]:
         """Get entire configuration dictionary"""
+        if self._config is None:
+            return {}
         return self._config.copy()
 
     def reload(self):

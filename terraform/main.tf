@@ -95,7 +95,7 @@ ENDSSH
   }
 }
 
-# Health check
+# Health check with retries
 resource "null_resource" "health_check" {
   depends_on = [null_resource.docker_build_and_deploy]
 
@@ -105,8 +105,49 @@ resource "null_resource" "health_check" {
 
   provisioner "local-exec" {
     command = <<-EOT
-      sleep 10
-      curl -f http://${var.nas_host}:${var.container_port} || exit 1
+      echo "Starting health check with retries..."
+      max_attempts=12
+      attempt=1
+      
+      while [ $attempt -le $max_attempts ]; do
+        echo "Health check attempt $attempt/$max_attempts"
+        
+        if curl -f -s http://${var.nas_host}:${var.container_port} > /dev/null 2>&1; then
+          echo "✅ Health check passed on attempt $attempt"
+          exit 0
+        fi
+        
+        echo "Health check failed, waiting 10 seconds before retry..."
+        sleep 10
+        attempt=$((attempt + 1))
+      done
+      
+      echo "❌ Health check failed after $max_attempts attempts"
+      exit 1
+    EOT
+  }
+}
+
+# Container status monitoring
+resource "null_resource" "container_monitoring" {
+  depends_on = [null_resource.health_check]
+
+  triggers = {
+    deployment_id = null_resource.docker_build_and_deploy.id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${var.nas_username}@${var.nas_host} << 'ENDSSH'
+        echo "=== Container Status ==="
+        /usr/local/bin/docker ps --filter name=${var.container_name} --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+        
+        echo "=== Container Logs (last 10 lines) ==="
+        /usr/local/bin/docker logs --tail 10 ${var.container_name}
+        
+        echo "=== Container Resource Usage ==="
+        /usr/local/bin/docker stats --no-stream ${var.container_name} --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+      ENDSSH
     EOT
   }
 }
@@ -115,6 +156,7 @@ resource "null_resource" "health_check" {
 output "deployment_endpoint" {
   description = "Application endpoint URL (internal)"
   value       = "http://${var.nas_host}:${var.container_port}"
+  depends_on  = [null_resource.health_check]
 }
 
 output "https_endpoint_info" {
@@ -122,8 +164,26 @@ output "https_endpoint_info" {
   value       = "Configure reverse proxy: HTTPS ${var.nas_host}:8000 → HTTP 127.0.0.1:${var.container_port}"
 }
 
-output "container_status" {
-  description = "Container deployment status"
-  value       = "deployed"
-  depends_on  = [null_resource.health_check]
+output "deployment_status" {
+  description = "Deployment status with health check results"
+  value = {
+    status           = "healthy"
+    container_name   = var.container_name
+    image_name      = var.image_name
+    container_port  = var.container_port
+    health_checked  = true
+    endpoint_url    = "http://${var.nas_host}:${var.container_port}"
+  }
+  depends_on = [null_resource.container_monitoring]
+}
+
+output "management_commands" {
+  description = "Useful Docker management commands for the deployed container"
+  value = {
+    view_logs    = "ssh ${var.nas_username}@${var.nas_host} '/usr/local/bin/docker logs ${var.container_name}'"
+    restart      = "ssh ${var.nas_username}@${var.nas_host} '/usr/local/bin/docker restart ${var.container_name}'"
+    stop         = "ssh ${var.nas_username}@${var.nas_host} '/usr/local/bin/docker stop ${var.container_name}'"
+    shell_access = "ssh ${var.nas_username}@${var.nas_host} '/usr/local/bin/docker exec -it ${var.container_name} /bin/bash'"
+    status       = "ssh ${var.nas_username}@${var.nas_host} '/usr/local/bin/docker ps --filter name=${var.container_name}'"
+  }
 }

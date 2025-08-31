@@ -1,12 +1,70 @@
 name: Deploy to Synology NAS
 
 on:
-  push:
-    tags: [ "v*" ]
+  release:
+    types: [ created ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to deploy'
+        required: true
+        default: 'latest'
+
+env:
+  CONTAINER_NAME: shechill-analysis
+  HEALTH_CHECK_TIMEOUT: 60
+  ROLLBACK_TIMEOUT: 30
 
 jobs:
-  deploy:
+  pre-deployment:
+    name: Pre-deployment Checks
     runs-on: ubuntu-latest
+    outputs:
+      current_version: ${{ steps.current.outputs.version }}
+      new_version: ${{ steps.new.outputs.version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh/
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/synology_nas
+        chmod 600 ~/.ssh/synology_nas
+        ssh-keyscan -H ${{ secrets.NAS_HOST }} >> ~/.ssh/known_hosts
+
+    - name: Get current running version
+      id: current
+      run: |
+        current_version=$(ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} \
+          "/usr/local/bin/docker inspect ${{ env.CONTAINER_NAME }} --format='{{.Config.Labels.version}}' 2>/dev/null || echo 'none'")
+        echo "version=$current_version" >> $GITHUB_OUTPUT
+        echo "Current version: $current_version"
+
+    - name: Get new version
+      id: new
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          new_version="${{ github.event.inputs.tag }}"
+        else
+          new_version="${{ github.event.release.tag_name }}"
+        fi
+        echo "version=$new_version" >> $GITHUB_OUTPUT
+        echo "New version: $new_version"
+
+    - name: Verify Docker build
+      run: |
+        docker build -t ${{ env.CONTAINER_NAME }}:${{ steps.new.outputs.version }} .
+
+    - name: Clean up
+      run: |
+        rm -f ~/.ssh/synology_nas
+
+  deploy:
+    name: Deploy Application
+    runs-on: ubuntu-latest
+    needs: pre-deployment
     
     steps:
     - name: Checkout code
@@ -34,16 +92,113 @@ jobs:
         cd terraform
         terraform plan \
           -var="nas_host=${{ secrets.NAS_HOST }}" \
-          -var="nas_username=${{ secrets.SSH_USER }}"
+          -var="nas_username=${{ secrets.SSH_USER }}" \
+          -var="image_name=${{ env.CONTAINER_NAME }}:${{ needs.pre-deployment.outputs.new_version }}"
+
+    - name: Create backup of current container
+      run: |
+        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'ENDSSH'
+          if /usr/local/bin/docker ps -q -f name=${{ env.CONTAINER_NAME }} | grep -q .; then
+            echo "Creating backup of current container..."
+            /usr/local/bin/docker commit ${{ env.CONTAINER_NAME }} ${{ env.CONTAINER_NAME }}:backup-$(date +%Y%m%d-%H%M%S)
+            echo "Backup created successfully"
+          else
+            echo "No running container to backup"
+          fi
+        ENDSSH
 
     - name: Terraform Apply
+      id: deploy
       run: |
         cd terraform
         terraform apply \
           -var="nas_host=${{ secrets.NAS_HOST }}" \
           -var="nas_username=${{ secrets.SSH_USER }}" \
+          -var="image_name=${{ env.CONTAINER_NAME }}:${{ needs.pre-deployment.outputs.new_version }}" \
           -auto-approve
 
+    - name: Post-deployment Health Check
+      id: health_check
+      run: |
+        echo "Waiting for application to start..."
+        sleep 15
+        
+        end_time=$((SECONDS + ${{ env.HEALTH_CHECK_TIMEOUT }}))
+        
+        while [ $SECONDS -lt $end_time ]; do
+          if curl -f -s "http://${{ secrets.NAS_HOST }}:8001" > /dev/null 2>&1; then
+            echo "✅ Health check passed!"
+            echo "health_status=success" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "Health check failed, retrying in 5 seconds..."
+          sleep 5
+        done
+        
+        echo "❌ Health check failed after ${{ env.HEALTH_CHECK_TIMEOUT }} seconds"
+        echo "health_status=failed" >> $GITHUB_OUTPUT
+        exit 1
+
+    - name: Rollback on failure
+      if: failure() && steps.health_check.outputs.health_status == 'failed'
+      run: |
+        echo "🔄 Starting rollback procedure..."
+        
+        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'ENDSSH'
+          echo "Stopping failed deployment..."
+          /usr/local/bin/docker stop ${{ env.CONTAINER_NAME }} || true
+          /usr/local/bin/docker rm ${{ env.CONTAINER_NAME }} || true
+          
+          # Find latest backup
+          backup_image=$(/usr/local/bin/docker images --format "table {{.Repository}}:{{.Tag}}" | grep "${{ env.CONTAINER_NAME }}:backup-" | head -n1)
+          
+          if [[ -n "$backup_image" ]]; then
+            echo "Rolling back to: $backup_image"
+            /usr/local/bin/docker run -d --name ${{ env.CONTAINER_NAME }} --restart unless-stopped \
+              -p 8001:8000 \
+              -v /volume1/docker/shechill-analysis/config:/app/config \
+              -v /volume1/docker/shechill-analysis/data:/app/data \
+              -v /volume1/docker/shechill-analysis/logs:/app/logs \
+              "$backup_image"
+              
+            echo "Rollback completed"
+          else
+            echo "No backup found, cannot rollback"
+            exit 1
+          fi
+        ENDSSH
+        
+        # Verify rollback
+        sleep 10
+        if curl -f -s "http://${{ secrets.NAS_HOST }}:8001" > /dev/null 2>&1; then
+          echo "✅ Rollback successful"
+        else
+          echo "❌ Rollback failed"
+          exit 1
+        fi
+
+    - name: Cleanup old backups
+      if: success()
+      run: |
+        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'ENDSSH'
+          echo "Cleaning up old backups (keeping last 3)..."
+          /usr/local/bin/docker images --format "table {{.Repository}}:{{.Tag}}" | \
+            grep "${{ env.CONTAINER_NAME }}:backup-" | \
+            tail -n +4 | \
+            xargs -r /usr/local/bin/docker rmi || true
+        ENDSSH
+
     - name: Clean up
+      if: always()
       run: |
         rm -f ~/.ssh/synology_nas
+
+    - name: Deployment Summary
+      if: always()
+      run: |
+        echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Previous Version**: ${{ needs.pre-deployment.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **New Version**: ${{ needs.pre-deployment.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deployment Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Health Check**: ${{ steps.health_check.outputs.health_status || 'not_run' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Endpoint**: http://${{ secrets.NAS_HOST }}:8001" >> $GITHUB_STEP_SUMMARY

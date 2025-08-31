@@ -20,7 +20,7 @@ import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from src.analysis import forecast_generator
 from src.analysis.quantity_analysis import QuantityAnalyzer
@@ -73,7 +73,7 @@ class DataUpdateManager:
         """Get detailed initialization status"""
         raw_data_dir = self.data_dir / "raw_transactions"
 
-        status = {
+        status: Dict[str, Any] = {
             "is_initialized": self.is_app_initialized(),
             "raw_data_dir_exists": raw_data_dir.exists(),
             "transaction_files_count": 0,
@@ -101,7 +101,7 @@ class DataUpdateManager:
                     status["estimated_data_range"] = {
                         "start": dates[0].isoformat(),
                         "end": dates[-1].isoformat(),
-                        "days": (dates[-1] - dates[0]).days + 1,
+                        "days": int((dates[-1] - dates[0]).days + 1),
                     }
 
             last_fetch_file = raw_data_dir / "last_fetch.json"
@@ -574,11 +574,11 @@ class DataUpdateManager:
                 "duration_seconds": duration,
             }
 
-    def detect_system_state(self) -> dict:
+    def detect_system_state(self) -> Dict[str, Any]:
         """Detect current system state and determine what's needed to be ready"""
         self.logger.info("🔍 Detecting system state...")
 
-        state = {
+        state: Dict[str, Any] = {
             "raw_data": self._check_raw_data_state(),
             "csv_data": self._check_csv_data_state(),
             "forecasts": self._check_forecast_state(),
@@ -589,13 +589,13 @@ class DataUpdateManager:
         # Determine required actions
         actions_needed = []
 
-        if not state["raw_data"]["has_recent_data"]:
+        if not state["raw_data"].get("has_recent_data", False):
             actions_needed.append("fetch_data")
 
-        if not state["csv_data"]["exists"] or not state["csv_data"]["up_to_date"]:
+        if not state["csv_data"].get("exists", False) or not state["csv_data"].get("up_to_date", False):
             actions_needed.append("run_analysis")
 
-        if not state["forecasts"]["exists"] or not state["forecasts"]["fresh"]:
+        if not state["forecasts"].get("exists", False) or not state["forecasts"].get("fresh", False):
             actions_needed.append("generate_forecasts")
 
         state["required_actions"] = actions_needed
@@ -607,7 +607,7 @@ class DataUpdateManager:
 
         return state
 
-    def _check_raw_data_state(self) -> dict:
+    def _check_raw_data_state(self) -> Dict[str, Any]:
         """Check state of raw transaction data"""
         try:
             last_fetch_file = self.data_dir / "raw_transactions" / "last_fetch.json"
@@ -643,7 +643,7 @@ class DataUpdateManager:
             self.logger.warning(f"Error checking raw data state: {e}")
             return {"exists": False, "has_recent_data": False, "error": str(e)}
 
-    def _check_csv_data_state(self) -> dict:
+    def _check_csv_data_state(self) -> Dict[str, Any]:
         """Check state of processed CSV data"""
         try:
             csv_file = self.data_dir / "quantity_per_day_per_item.csv"
@@ -699,7 +699,7 @@ class DataUpdateManager:
             self.logger.warning(f"Error checking CSV state: {e}")
             return {"exists": False, "up_to_date": False, "error": str(e)}
 
-    def _check_forecast_state(self) -> dict:
+    def _check_forecast_state(self) -> Dict[str, Any]:
         """Check state of forecast data"""
         try:
             forecast_dir = self.data_dir / "forecasts"
