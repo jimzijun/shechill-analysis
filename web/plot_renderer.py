@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""
+Dynamic Plot Renderer for SheChill Web App
+==========================================
+
+Renders matplotlib/seaborn plots on-demand in Flask using forecast data.
+Uses BytesIO + base64 encoding for direct HTML embedding without file I/O.
+"""
+
+import matplotlib
+matplotlib.use('Agg')  # Set backend for Flask compatibility
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import numpy as np
+from io import BytesIO
+import base64
+from typing import Dict, Any, Optional, Tuple
+import re
+from datetime import datetime, timedelta
+
+# Set up matplotlib/seaborn styling
+plt.style.use('default')
+sns.set_palette("husl")
+
+
+class PlotRenderer:
+    """Handles dynamic plot generation for web interface"""
+    
+    def __init__(self):
+        """Initialize plot renderer with default settings"""
+        self.figure_size = (12, 8)
+        self.dpi = 150
+        self.format = 'png'
+    
+    def render_grid_plot(self, item_name: str, forecast_data: Dict[str, Any], 
+                        quantity_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Render weekday grid plot for an item using forecast data
+        
+        Args:
+            item_name: Name of the item
+            forecast_data: Forecast data from forecast_manager
+            quantity_data: Historical quantity data grouped by weekday
+        
+        Returns:
+            base64-encoded PNG string or None if error
+        """
+        try:
+            # Create figure with 6 subplots (2 rows, 3 columns)
+            fig, axes = plt.subplots(2, 3, figsize=self.figure_size)
+            fig.suptitle(f'Weekday Sales Pattern with Unified Forecast: {item_name}', 
+                        fontsize=16, fontweight='bold')
+            
+            weekdays = ['Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            weekday_map = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 
+                          4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
+            
+            # Extract forecast DataFrame
+            forecast_df = forecast_data.get('forecast_df')
+            if forecast_df is None:
+                return None
+            
+            # Convert to pandas DataFrame if it's in JSON format
+            if isinstance(forecast_df, dict) and 'data' in forecast_df:
+                forecast_df = pd.DataFrame(forecast_df['data'])
+                forecast_df['ds'] = pd.to_datetime(forecast_df['ds'])
+            elif not isinstance(forecast_df, pd.DataFrame):
+                print(f"❌ Unexpected forecast_df format: {type(forecast_df)}")
+                return None
+            
+            for i, weekday in enumerate(weekdays):
+                ax = axes[i // 3, i % 3]
+                
+                # Get historical data for this weekday
+                historical_data = quantity_data.get(weekday, {})
+                dates = historical_data.get('dates', [])
+                quantities = historical_data.get('quantities', [])
+                date_labels = historical_data.get('date_labels', [])
+                
+                # Plot historical data
+                if quantities:
+                    historical_x = range(len(quantities))
+                    ax.plot(historical_x, quantities, 'o-', linewidth=2, markersize=4, 
+                           label='Historical', color='blue')
+                
+                # Add forecast data
+                forecast_x, forecast_y, forecast_lower, forecast_upper, forecast_labels = \
+                    self._extract_weekday_forecast(weekday, forecast_df, dates)
+                
+                if forecast_x and forecast_y:
+                    # Plot forecast line
+                    ax.plot(forecast_x, forecast_y, '--', linewidth=2, 
+                           color='red', label='Forecast')
+                    
+                    # Plot confidence interval
+                    ax.fill_between(forecast_x, forecast_lower, forecast_upper, 
+                                   alpha=0.3, color='red', label='Confidence Interval')
+                
+                # Set up axes
+                all_x = list(range(len(quantities))) + forecast_x
+                all_labels = date_labels + forecast_labels
+                
+                ax.set_title(f'{weekday}', fontweight='bold')
+                ax.set_ylabel('Quantity Sold')
+                ax.set_xlabel('Date')
+                ax.grid(True, alpha=0.3)
+                
+                # Set x-axis labels
+                if all_x:
+                    ax.set_xticks(all_x)
+                    ax.set_xticklabels(all_labels, rotation=45, ha='right')
+                
+                # Set y-axis to start at 0
+                ax.set_ylim(bottom=0)
+                
+                # Add statistics
+                self._add_statistics_text(ax, quantities, forecast_y)
+                
+                # Add legend only to first subplot
+                if i == 0 and forecast_y:
+                    ax.legend(loc='upper right', fontsize=8)
+            
+            plt.tight_layout()
+            
+            # Convert to base64
+            img_buffer = BytesIO()
+            plt.savefig(img_buffer, format=self.format, dpi=self.dpi, bbox_inches='tight')
+            plt.close(fig)  # Important: close figure to prevent memory leaks
+            
+            img_buffer.seek(0)
+            img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf8')
+            
+            return img_base64
+            
+        except Exception as e:
+            print(f"❌ Error rendering plot for {item_name}: {e}")
+            plt.close('all')  # Clean up any open figures
+            return None
+    
+    def render_simple_plot(self, item_name: str, forecast_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Render simple time series plot for an item
+        
+        Args:
+            item_name: Name of the item
+            forecast_data: Forecast data from forecast_manager
+        
+        Returns:
+            base64-encoded PNG string or None if error
+        """
+        try:
+            # Create simple time series plot
+            fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+            
+            forecast_df = forecast_data.get('forecast_df')
+            historical_data = forecast_data.get('historical_data')
+            
+            if forecast_df is None:
+                return None
+            
+            # Plot forecast
+            ax.plot(forecast_df['ds'], forecast_df['yhat'], 
+                   label='Forecast', color='red', linestyle='--')
+            ax.fill_between(forecast_df['ds'], 
+                           forecast_df['yhat_lower'], 
+                           forecast_df['yhat_upper'],
+                           alpha=0.3, color='red', label='Confidence Interval')
+            
+            # Plot historical data if available
+            if historical_data is not None and len(historical_data) > 0:
+                # Assume historical_data has matching dates
+                hist_dates = forecast_df['ds'][:len(historical_data)]
+                ax.plot(hist_dates, historical_data, 
+                       'o-', label='Historical', color='blue', markersize=4)
+            
+            ax.set_title(f'Sales Forecast: {item_name}', fontweight='bold')
+            ax.set_ylabel('Quantity Sold')
+            ax.set_xlabel('Date')
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            
+            plt.tight_layout()
+            
+            # Convert to base64
+            img_buffer = BytesIO()
+            plt.savefig(img_buffer, format=self.format, dpi=self.dpi, bbox_inches='tight')
+            plt.close(fig)
+            
+            img_buffer.seek(0)
+            img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf8')
+            
+            return img_base64
+            
+        except Exception as e:
+            print(f"❌ Error rendering simple plot for {item_name}: {e}")
+            plt.close('all')
+            return None
+    
+    def _extract_weekday_forecast(self, weekday: str, forecast_df: pd.DataFrame, 
+                                 historical_dates: list) -> Tuple[list, list, list, list, list]:
+        """Extract forecast data for a specific weekday"""
+        try:
+            # Map weekday names to numbers
+            weekday_map = {'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 
+                          'Friday': 4, 'Saturday': 5, 'Sunday': 6}
+            target_weekday_num = weekday_map.get(weekday)
+            
+            if target_weekday_num is None:
+                return [], [], [], [], []
+            
+            # Get last historical date
+            last_date = None
+            if historical_dates:
+                # Parse the last historical date - handle "MM/DD - Weekday" format
+                last_date_str = historical_dates[-1] if isinstance(historical_dates[-1], str) else None
+                if last_date_str:
+                    try:
+                        # Extract date part from "MM/DD - Weekday" format
+                        import re
+                        match = re.match(r'(\d+/\d+)', last_date_str)
+                        if match:
+                            date_part = match.group(1)
+                            # Assume current year (2025 based on forecast data)
+                            last_date = pd.to_datetime(f"2025/{date_part}")
+                        else:
+                            # Try direct parsing
+                            last_date = pd.to_datetime(last_date_str)
+                    except Exception as parse_error:
+                        print(f"⚠️ Warning: Could not parse date '{last_date_str}': {parse_error}")
+                        # Use a reasonable fallback - end of August 2025
+                        last_date = pd.Timestamp('2025-08-30')
+            
+            if last_date is None:
+                # Default to end of August 2025 if no historical dates
+                last_date = pd.Timestamp('2025-08-30')
+            
+            # Ensure ds column is datetime
+            forecast_df = forecast_df.copy()
+            if 'ds' in forecast_df.columns:
+                forecast_df['ds'] = pd.to_datetime(forecast_df['ds'])
+            else:
+                print(f"❌ No 'ds' column found in forecast data")
+                return [], [], [], [], []
+            
+            # Filter forecast for this weekday and future dates
+            future_forecast = forecast_df[forecast_df['ds'] > last_date].copy()
+            
+            if future_forecast.empty:
+                return [], [], [], [], []
+            
+            # Get forecast points for this specific weekday (next 4 instances)
+            weekday_forecast = future_forecast[
+                future_forecast['ds'].dt.dayofweek == target_weekday_num
+            ].head(4)
+            
+            if weekday_forecast.empty:
+                return [], [], [], [], []
+            
+            # Prepare data for plotting
+            start_idx = len(historical_dates)
+            forecast_x = [start_idx + i for i in range(len(weekday_forecast))]
+            forecast_y = weekday_forecast['yhat'].tolist()
+            forecast_lower = weekday_forecast['yhat_lower'].tolist()
+            forecast_upper = weekday_forecast['yhat_upper'].tolist()
+            forecast_labels = [f'F+{i+1}' for i in range(len(weekday_forecast))]
+            
+            return forecast_x, forecast_y, forecast_lower, forecast_upper, forecast_labels
+            
+        except Exception as e:
+            print(f"❌ Error extracting weekday forecast for {weekday}: {e}")
+            return [], [], [], [], []
+    
+    def _add_statistics_text(self, ax, quantities: list, forecast_y: list):
+        """Add statistics text box to plot"""
+        try:
+            if not quantities:
+                return
+            
+            avg_qty = np.mean(quantities)
+            max_qty = np.max(quantities)
+            
+            stats_text = f'Avg: {avg_qty:.1f}\nMax: {max_qty:.0f}'
+            
+            if forecast_y:
+                next_forecast = forecast_y[0]
+                stats_text += f'\nNext: {next_forecast:.1f}'
+            
+            ax.text(0.98, 0.98, stats_text, 
+                   transform=ax.transAxes, verticalalignment='top',
+                   horizontalalignment='right',
+                   bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+        except Exception as e:
+            print(f"⚠️  Warning: Could not add statistics text: {e}")
+
+
+# Global instance
+plot_renderer = PlotRenderer()
+
+
+def get_plot_renderer() -> PlotRenderer:
+    """Get the global plot renderer instance"""
+    return plot_renderer
+
+
+def render_item_plot(item_name: str, forecast_data: Dict[str, Any], 
+                    quantity_data: Dict[str, Any], plot_type: str = 'grid') -> Optional[str]:
+    """
+    Convenience function to render plots
+    
+    Args:
+        item_name: Name of the item
+        forecast_data: Forecast data from forecast_manager  
+        quantity_data: Historical quantity data
+        plot_type: 'grid' or 'simple'
+    
+    Returns:
+        base64-encoded PNG string or None
+    """
+    renderer = get_plot_renderer()
+    
+    if plot_type == 'grid':
+        return renderer.render_grid_plot(item_name, forecast_data, quantity_data)
+    elif plot_type == 'simple':
+        return renderer.render_simple_plot(item_name, forecast_data)
+    else:
+        print(f"❌ Unknown plot type: {plot_type}")
+        return None
+
+
+if __name__ == "__main__":
+    # Test plot renderer
+    print("Plot Renderer Test")
+    print("=" * 40)
+    
+    # Create test data
+    test_forecast_data = {
+        'forecast_df': pd.DataFrame({
+            'ds': pd.date_range('2025-01-01', periods=30),
+            'yhat': np.random.rand(30) * 100,
+            'yhat_lower': np.random.rand(30) * 80,
+            'yhat_upper': np.random.rand(30) * 120
+        })
+    }
+    
+    test_quantity_data = {
+        'Tuesday': {
+            'dates': ['2025-01-01', '2025-01-08'],
+            'quantities': [10, 15],
+            'date_labels': ['1/1', '1/8']
+        }
+    }
+    
+    renderer = PlotRenderer()
+    result = renderer.render_simple_plot("Test Item", test_forecast_data)
+    
+    print(f"Test render successful: {result is not None}")
+    if result:
+        print(f"Base64 length: {len(result)} characters")
