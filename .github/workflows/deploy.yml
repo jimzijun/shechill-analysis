@@ -86,7 +86,7 @@ jobs:
     - name: Create upload directory and transfer Docker image to NAS
       run: |
         ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "mkdir -p /volume1/docker/shechill-analysis/uploads"
-        scp -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/volume1/docker/shechill-analysis/uploads/
+        scp -O -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/volume1/docker/shechill-analysis/uploads/
 
     - name: Terraform Apply
       id: deploy
