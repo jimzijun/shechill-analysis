@@ -80,6 +80,49 @@ Each plot shows:
 - **Consolidates Items**: Merges weekend variants and duplicates
 - **Smart Forecasting**: Uses only post-introduction data
 
+## 👥 Development Setup
+
+### Prerequisites
+- Python 3.12+
+- Git
+
+### Installation
+```bash
+# Clone the repository
+git clone https://github.com/jimzijun/shechill-analysis.git
+cd shechill-analysis
+
+# Install dependencies
+pip install -e ".[dev]"
+
+# Install git hooks (recommended)
+./scripts/install-hooks.sh
+```
+
+### Git Hooks
+The project includes pre-push hooks that run code quality checks before pushing:
+- **Black** formatting check
+- **isort** import sorting check  
+- **flake8** linting (critical errors)
+- **mypy** type checking
+- **Smoke test** (import validation)
+
+**Skip hooks** (not recommended): `git push --no-verify`
+
+### Code Quality
+Run all checks manually:
+```bash
+# Format code
+black src/ web/
+isort src/ web/
+
+# Lint code
+flake8 src/ web/
+
+# Type check
+mypy src/ web/ --ignore-missing-imports --no-strict-optional
+```
+
 ## 📅 Usage Workflow
 
 1. **Update Data**: Replace `data/transaction-summary.csv` with new data

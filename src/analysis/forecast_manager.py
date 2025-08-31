@@ -150,7 +150,7 @@ class ForecastManager:
 
     def _serialize_forecast_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Convert numpy arrays to JSON-serializable format"""
-        serialized = {}
+        serialized: Dict[str, Any] = {}
 
         for key, value in data.items():
             if isinstance(value, np.ndarray):
