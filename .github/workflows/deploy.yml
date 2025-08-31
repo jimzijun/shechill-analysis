@@ -83,9 +83,10 @@ jobs:
           fi
         ENDSSH
 
-    - name: Transfer Docker image to NAS
+    - name: Create upload directory and transfer Docker image to NAS
       run: |
-        scp -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:~/
+        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "mkdir -p /tmp/docker-uploads"
+        scp -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/tmp/docker-uploads/
 
     - name: Terraform Apply
       id: deploy
