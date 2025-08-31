@@ -9,6 +9,7 @@ Generates plots on-demand using Prophet forecasting for bakery inventory plannin
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -160,7 +161,13 @@ def login():
         if password == WEBAPP_PASSWORD:
             session["authenticated"] = True
             next_page = request.args.get("next")
-            return redirect(next_page) if next_page else redirect(url_for("index"))
+            # Validate next_page: only allow relative URLs without scheme/netloc
+            if next_page:
+                sanitized = next_page.replace("\\", "")
+                parsed = urlparse(sanitized)
+                if not parsed.scheme and not parsed.netloc:
+                    return redirect(sanitized)
+            return redirect(url_for("index"))
         else:
             flash("Incorrect password", "error")
 
