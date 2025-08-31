@@ -37,20 +37,29 @@ jobs:
     - name: Get latest tag
       id: latest_tag
       run: |
-        latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        latest_tag=$(git tag --list --sort=-creatordate | head -n1)
+        if [[ -z "$latest_tag" ]]; then
+          latest_tag=""
+        fi
         echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
+        echo "has_tags=$([[ -n "$latest_tag" ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
 
     - name: Check for changes since last tag
       id: changes
       run: |
         latest_tag="${{ steps.latest_tag.outputs.latest_tag }}"
+        has_tags="${{ steps.latest_tag.outputs.has_tags }}"
         
         if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
           echo "should_release=true" >> $GITHUB_OUTPUT
           echo "Manual release triggered"
         else
           # Check if there are commits since last tag
-          commits_since_tag=$(git rev-list ${latest_tag}..HEAD --count)
+          if [[ "$has_tags" == "true" ]]; then
+            commits_since_tag=$(git rev-list ${latest_tag}..HEAD --count)
+          else
+            commits_since_tag=$(git rev-list HEAD --count)
+          fi
           
           if [[ $commits_since_tag -gt 0 ]]; then
             echo "should_release=true" >> $GITHUB_OUTPUT
