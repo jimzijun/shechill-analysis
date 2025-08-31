@@ -15,13 +15,9 @@ Output Files:
 - data/quantity_per_day_per_item.csv - Daily quantities by item with category
 """
 
-import glob
 import json
-import os
-from collections import defaultdict
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict
 
 import pandas as pd
 
@@ -48,9 +44,7 @@ class QuantityAnalyzer:
             return pd.DataFrame()
 
         # Find all JSON files (skip last_fetch.json)
-        json_files = [
-            f for f in self.raw_data_dir.glob("*.json") if f.name != "last_fetch.json"
-        ]
+        json_files = [f for f in self.raw_data_dir.glob("*.json") if f.name != "last_fetch.json"]
         if not json_files:
             print("⚠️  No raw order JSON files found")
             print("   Run Square API fetch first: python scripts/pull_today_sales.py")
@@ -78,9 +72,7 @@ class QuantityAnalyzer:
                     # Extract order metadata
                     order_id = order.get("id", "")
                     created_at = order.get("created_at", "")
-                    order_date = order.get(
-                        "date", ""
-                    )  # Already set by Square API client
+                    order_date = order.get("date", "")  # Already set by Square API client
                     local_datetime = order.get("local_datetime", "")
 
                     if not created_at or not order_date:
@@ -94,7 +86,7 @@ class QuantityAnalyzer:
                             # Fallback to created_at
                             dt = pd.to_datetime(created_at)
                         day_of_week = dt.day_name()
-                    except:
+                    except Exception:
                         day_of_week = "Unknown"
 
                     # Process line items
@@ -110,7 +102,7 @@ class QuantityAnalyzer:
 
                         try:
                             quantity = float(item.get("quantity", "0"))
-                        except:
+                        except (ValueError, TypeError):
                             quantity = 0.0
 
                         if quantity <= 0:
@@ -123,7 +115,7 @@ class QuantityAnalyzer:
                             try:
                                 amount = base_price_money.get("amount", 0)
                                 sales_price = float(amount) / 100.0
-                            except:
+                            except (KeyError, ValueError, TypeError):
                                 pass
 
                         # Create transaction record
@@ -145,9 +137,7 @@ class QuantityAnalyzer:
 
                 total_orders += orders_processed
                 total_items += items_processed
-                print(
-                    f"   {json_file.name}: {orders_processed} orders, {items_processed} line items"
-                )
+                print(f"   {json_file.name}: {orders_processed} orders, {items_processed} line items")
 
             except Exception as e:
                 print(f"⚠️  Error loading {json_file.name}: {e}")
@@ -185,9 +175,7 @@ class QuantityAnalyzer:
             "Berry Tart": ["Berry Tart", "Berry Tart "],
             "Chocolate Tart": ["Chocolate Tart", "Chocolate Tart "],
             "Bread Pudding Croissant": ["Bread Pudding Croissant"],
-            "Chocolate Banana Bread (Gluten Free)": [
-                "Chocolate Banana Bread (Gluten Free)"
-            ],
+            "Chocolate Banana Bread (Gluten Free)": ["Chocolate Banana Bread (Gluten Free)"],
             "Crispy Egg Tart": ["Crispy Egg Tart", "Egg Tart"],
             # Spelling/character variations
             "Dubai Chocolate Croissant": [
@@ -246,14 +234,10 @@ class QuantityAnalyzer:
         duplicates_before = df_cleaned["Item"].value_counts()
         duplicate_items = duplicates_before[duplicates_before > 1]
         if len(duplicate_items) > 5:
-            print(
-                f"Sample duplicates before cleaning: {dict(duplicate_items.head().items())}"
-            )
+            print(f"Sample duplicates before cleaning: {dict(duplicate_items.head().items())}")
 
         # Apply mapping
-        df_cleaned["Item"] = (
-            df_cleaned["Item"].map(reverse_mapping).fillna(df_cleaned["Item"])
-        )
+        df_cleaned["Item"] = df_cleaned["Item"].map(reverse_mapping).fillna(df_cleaned["Item"])
 
         cleaned_items = df_cleaned["Item"].nunique()
         merged_count = original_items - cleaned_items
@@ -274,9 +258,9 @@ class QuantityAnalyzer:
         cutoff_time = time(22, 0)  # 10 PM
         today = pd.to_datetime(now.date())  # Convert to pandas datetime for comparison
 
-        print(f"\n🕰️  Applying daily cutoff logic...")
+        print("\n🕰️  Applying daily cutoff logic...")
         print(f"Current time: {now.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"Cutoff time: 22:00 (10 PM)")
+        print("Cutoff time: 22:00 (10 PM)")
 
         if now.time() < cutoff_time:
             # Before 10 PM - exclude today's data to avoid incomplete daily data
@@ -284,11 +268,11 @@ class QuantityAnalyzer:
             excluded_count = len(df) - len(df_filtered)
             print(f"🕘 Before 10 PM cutoff - excluding today's data ({today.date()})")
             print(f"Excluded transactions: {excluded_count:,}")
-            print(f"Reason: Incomplete daily data affects forecasting accuracy")
+            print("Reason: Incomplete daily data affects forecasting accuracy")
         else:
             # After 10 PM - include all data (today should be complete)
             df_filtered = df.copy()
-            print(f"🕙 After 10 PM cutoff - including all data through today")
+            print("🕙 After 10 PM cutoff - including all data through today")
             print(f"All transactions retained: {len(df_filtered):,}")
 
         return df_filtered
@@ -318,38 +302,26 @@ class QuantityAnalyzer:
         print("Removing seasonal/special items...")
         before_special_filter = len(df_filtered)
         df_filtered = df_filtered[
-            ~df_filtered["Item"].str.contains(
-                "4th of July|4th Of July|Easter Special", case=False, na=False
-            )
+            ~df_filtered["Item"].str.contains("4th of July|4th Of July|Easter Special", case=False, na=False)
         ]
         after_special_filter = len(df_filtered)
         removed_special = before_special_filter - after_special_filter
         print(f"Removed {removed_special} transactions for seasonal/special items")
 
         # Group by Date and Item only
-        daily_qty = (
-            df_filtered.groupby(["Date", "Item"]).agg({"Qty": "sum"}).reset_index()
-        )
+        daily_qty = df_filtered.groupby(["Date", "Item"]).agg({"Qty": "sum"}).reset_index()
 
         print(f"Daily aggregated data shape: {daily_qty.shape}")
         print(f"Unique items: {daily_qty['Item'].nunique()}")
 
         # Create pivot table - Dates as rows, Items as columns
-        qty_pivot = daily_qty.pivot_table(
-            index="Date", columns="Item", values="Qty", fill_value=0
-        ).reset_index()
+        qty_pivot = daily_qty.pivot_table(index="Date", columns="Item", values="Qty", fill_value=0).reset_index()
 
         # Format the Date column and add day of week
-        qty_pivot["Date_Formatted"] = (
-            qty_pivot["Date"].dt.strftime("%m/%d")
-            + " - "
-            + qty_pivot["Date"].dt.day_name()
-        )
+        qty_pivot["Date_Formatted"] = qty_pivot["Date"].dt.strftime("%m/%d") + " - " + qty_pivot["Date"].dt.day_name()
 
         # Reorder columns: Date_Formatted first, then all items sorted alphabetically
-        item_columns = [
-            col for col in qty_pivot.columns if col not in ["Date", "Date_Formatted"]
-        ]
+        item_columns = [col for col in qty_pivot.columns if col not in ["Date", "Date_Formatted"]]
         item_columns.sort()  # Sort items alphabetically
 
         # Build final column order
@@ -360,8 +332,8 @@ class QuantityAnalyzer:
         qty_pivot = qty_pivot.rename(columns={"Date_Formatted": "Date"})
 
         print(f"Final pivot table shape: {qty_pivot.shape}")
-        print(f"Table format: Dates as rows, Items as columns")
-        print(f"Items ordered alphabetically")
+        print("Table format: Dates as rows, Items as columns")
+        print("Items ordered alphabetically")
         print("Excluded: Seasonal/special items, Monday, problematic dates")
 
         return qty_pivot
@@ -409,15 +381,11 @@ class QuantityAnalyzer:
         self.save_files(qty_pivot)
 
         # Print summary
-        print(f"\n=== ANALYSIS SUMMARY ===")
-        print(f"Data Source: JSON (Square API)")
-        print(
-            f"Period: {stats['date_range'][0].strftime('%Y-%m-%d')} to {stats['date_range'][1].strftime('%Y-%m-%d')}"
-        )
+        print("\n=== ANALYSIS SUMMARY ===")
+        print("Data Source: JSON (Square API)")
+        print(f"Period: {stats['date_range'][0].strftime('%Y-%m-%d')} to {stats['date_range'][1].strftime('%Y-%m-%d')}")
         print(f"Total Quantity: {stats['total_qty']:,.0f} units")
-        print(
-            f"Items Analyzed: {stats['unique_items']} unique items (after data cleaning)"
-        )
+        print(f"Items Analyzed: {stats['unique_items']} unique items (after data cleaning)")
         print(f"Days Covered: {stats['total_days']} days")
 
         print("\nQuantity analysis complete! Check the data/ directory for outputs.")
@@ -429,12 +397,8 @@ def main():
     """Main function for CLI usage"""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Enhanced Quantity Analysis with JSON support"
-    )
-    parser.add_argument(
-        "--data-dir", default="data", help="Data directory (default: data)"
-    )
+    parser = argparse.ArgumentParser(description="Enhanced Quantity Analysis with JSON support")
+    parser.add_argument("--data-dir", default="data", help="Data directory (default: data)")
 
     args = parser.parse_args()
 

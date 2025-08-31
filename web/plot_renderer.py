@@ -13,7 +13,6 @@ matplotlib.use("Agg")  # Set backend for Flask compatibility
 
 import base64
 import re
-from datetime import datetime, timedelta
 from io import BytesIO
 from typing import Any, Dict, Optional, Tuple
 
@@ -70,15 +69,6 @@ class PlotRenderer:
                 "Saturday",
                 "Sunday",
             ]
-            weekday_map = {
-                0: "Monday",
-                1: "Tuesday",
-                2: "Wednesday",
-                3: "Thursday",
-                4: "Friday",
-                5: "Saturday",
-                6: "Sunday",
-            }
 
             # Extract forecast DataFrame
             forecast_df = forecast_data.get("forecast_df")
@@ -173,9 +163,7 @@ class PlotRenderer:
 
             # Convert to base64
             img_buffer = BytesIO()
-            plt.savefig(
-                img_buffer, format=self.format, dpi=self.dpi, bbox_inches="tight"
-            )
+            plt.savefig(img_buffer, format=self.format, dpi=self.dpi, bbox_inches="tight")
             plt.close(fig)  # Important: close figure to prevent memory leaks
 
             img_buffer.seek(0)
@@ -188,9 +176,7 @@ class PlotRenderer:
             plt.close("all")  # Clean up any open figures
             return None
 
-    def render_simple_plot(
-        self, item_name: str, forecast_data: Dict[str, Any]
-    ) -> Optional[str]:
+    def render_simple_plot(self, item_name: str, forecast_data: Dict[str, Any]) -> Optional[str]:
         """
         Render simple time series plot for an item
 
@@ -251,9 +237,7 @@ class PlotRenderer:
 
             # Convert to base64
             img_buffer = BytesIO()
-            plt.savefig(
-                img_buffer, format=self.format, dpi=self.dpi, bbox_inches="tight"
-            )
+            plt.savefig(img_buffer, format=self.format, dpi=self.dpi, bbox_inches="tight")
             plt.close(fig)
 
             img_buffer.seek(0)
@@ -290,15 +274,10 @@ class PlotRenderer:
             last_date = None
             if historical_dates:
                 # Parse the last historical date - handle "MM/DD - Weekday" format
-                last_date_str = (
-                    historical_dates[-1]
-                    if isinstance(historical_dates[-1], str)
-                    else None
-                )
+                last_date_str = historical_dates[-1] if isinstance(historical_dates[-1], str) else None
                 if last_date_str:
                     try:
                         # Extract date part from "MM/DD - Weekday" format
-                        import re
 
                         match = re.match(r"(\d+/\d+)", last_date_str)
                         if match:
@@ -309,9 +288,7 @@ class PlotRenderer:
                             # Try direct parsing
                             last_date = pd.to_datetime(last_date_str)
                     except Exception as parse_error:
-                        print(
-                            f"⚠️ Warning: Could not parse date '{last_date_str}': {parse_error}"
-                        )
+                        print(f"⚠️ Warning: Could not parse date '{last_date_str}': {parse_error}")
                         # Use a reasonable fallback - end of August 2025
                         last_date = pd.Timestamp("2025-08-30")
 
@@ -324,7 +301,7 @@ class PlotRenderer:
             if "ds" in forecast_df.columns:
                 forecast_df["ds"] = pd.to_datetime(forecast_df["ds"])
             else:
-                print(f"❌ No 'ds' column found in forecast data")
+                print("❌ No 'ds' column found in forecast data")
                 return [], [], [], [], []
 
             # Filter forecast for this weekday and future dates
@@ -334,9 +311,7 @@ class PlotRenderer:
                 return [], [], [], [], []
 
             # Get forecast points for this specific weekday (next 4 instances)
-            weekday_forecast = future_forecast[
-                future_forecast["ds"].dt.dayofweek == target_weekday_num
-            ].head(4)
+            weekday_forecast = future_forecast[future_forecast["ds"].dt.dayofweek == target_weekday_num].head(4)
 
             if weekday_forecast.empty:
                 return [], [], [], [], []

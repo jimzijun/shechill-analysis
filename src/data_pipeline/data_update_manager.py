@@ -25,6 +25,7 @@ from typing import Any, Dict, Optional
 from src.analysis import forecast_generator
 from src.analysis.quantity_analysis import QuantityAnalyzer
 from src.config_manager import get_config
+
 # Import our components using proper src paths
 from src.square_client.square_api_client import SquareAPIClient
 
@@ -57,9 +58,7 @@ class DataUpdateManager:
             return False
 
         # Check if any transaction JSON files exist (excluding last_fetch.json)
-        json_files = [
-            f for f in raw_data_dir.glob("*.json") if f.name != "last_fetch.json"
-        ]
+        json_files = [f for f in raw_data_dir.glob("*.json") if f.name != "last_fetch.json"]
         if not json_files:
             return False
 
@@ -83,9 +82,7 @@ class DataUpdateManager:
         }
 
         if raw_data_dir.exists():
-            json_files = [
-                f for f in raw_data_dir.glob("*.json") if f.name != "last_fetch.json"
-            ]
+            json_files = [f for f in raw_data_dir.glob("*.json") if f.name != "last_fetch.json"]
             status["transaction_files_count"] = len(json_files)
 
             if json_files:
@@ -96,7 +93,7 @@ class DataUpdateManager:
                         date_str = file.stem  # filename without .json
                         date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
                         dates.append(date_obj)
-                    except:
+                    except ValueError:
                         continue
 
                 if dates:
@@ -161,9 +158,7 @@ class DataUpdateManager:
             if "pipeline_stages" in status_update:
                 if "pipeline_stages" not in current_status:
                     current_status["pipeline_stages"] = {}
-                current_status["pipeline_stages"].update(
-                    status_update["pipeline_stages"]
-                )
+                current_status["pipeline_stages"].update(status_update["pipeline_stages"])
                 del status_update["pipeline_stages"]
 
             if "statistics" in status_update:
@@ -181,9 +176,7 @@ class DataUpdateManager:
         except Exception as e:
             self.logger.error(f"Failed to update status: {e}")
 
-    def stage_data_fetch(
-        self, days_back: int = 7, force_full: bool = False
-    ) -> Dict[str, Any]:
+    def stage_data_fetch(self, days_back: int = 7, force_full: bool = False) -> Dict[str, Any]:
         """Stage 1: Fetch data from Square API"""
         self.logger.info("📥 STAGE 1: Fetching data from Square API")
 
@@ -198,9 +191,7 @@ class DataUpdateManager:
             result = self.square_client.perform_data_fetch(days_back, force_full)
 
             if result["status"] == "success":
-                self.logger.info(
-                    f"✅ Data fetch completed: {result['orders_fetched']} orders"
-                )
+                self.logger.info(f"✅ Data fetch completed: {result['orders_fetched']} orders")
                 self.update_status(
                     {
                         "pipeline_stages": {"data_fetch": "completed"},
@@ -209,9 +200,7 @@ class DataUpdateManager:
                 )
                 return {"status": "success", "data": result}
             else:
-                self.logger.error(
-                    f"❌ Data fetch failed: {result.get('error', 'Unknown error')}"
-                )
+                self.logger.error(f"❌ Data fetch failed: {result.get('error', 'Unknown error')}")
                 self.update_status(
                     {
                         "pipeline_stages": {"data_fetch": "failed"},
@@ -226,9 +215,7 @@ class DataUpdateManager:
         except Exception as e:
             error_msg = f"Data fetch stage failed: {e}"
             self.logger.error(f"❌ {error_msg}")
-            self.update_status(
-                {"pipeline_stages": {"data_fetch": "failed"}, "last_error": error_msg}
-            )
+            self.update_status({"pipeline_stages": {"data_fetch": "failed"}, "last_error": error_msg})
             return {"status": "error", "error": error_msg}
 
     def stage_data_processing(self) -> Dict[str, Any]:
@@ -357,9 +344,7 @@ class DataUpdateManager:
             forecasts_dir = self.data_dir / "forecasts"
             if forecasts_dir.exists() and list(forecasts_dir.glob("*_forecast.json")):
                 forecast_count = len(list(forecasts_dir.glob("*_forecast.json")))
-                self.logger.info(
-                    f"✅ Forecast generation completed: {forecast_count} forecast files generated"
-                )
+                self.logger.info(f"✅ Forecast generation completed: {forecast_count} forecast files generated")
 
                 self.update_status(
                     {
@@ -393,9 +378,7 @@ class DataUpdateManager:
             )
             return {"status": "error", "error": error_msg}
 
-    def run_full_update_pipeline(
-        self, days_back: int = 7, force_full: bool = False
-    ) -> Dict[str, Any]:
+    def run_full_update_pipeline(self, days_back: int = 7, force_full: bool = False) -> Dict[str, Any]:
         """Run the complete data update pipeline"""
         start_time = datetime.now()
 
@@ -502,9 +485,7 @@ class DataUpdateManager:
                 "initialization_status": init_status,
             }
 
-        self.logger.info(
-            f"📅 Business start date: {self.config.business_start_date.date()}"
-        )
+        self.logger.info(f"📅 Business start date: {self.config.business_start_date.date()}")
         self.logger.info(f"🏪 Business: {self.config.business_name}")
 
         self.update_status(
@@ -521,9 +502,7 @@ class DataUpdateManager:
             result = self.square_client.perform_data_fetch(days_back=0, force_full=True)
 
             if result["status"] != "success":
-                raise Exception(
-                    f"Historical data fetch failed: {result.get('error', 'Unknown error')}"
-                )
+                raise Exception(f"Historical data fetch failed: {result.get('error', 'Unknown error')}")
 
             orders_fetched = result.get("orders_fetched", 0)
             self.logger.info(f"✅ Fetched {orders_fetched} historical orders")
@@ -533,18 +512,14 @@ class DataUpdateManager:
             process_result = self.stage_data_processing()
 
             if process_result["status"] != "success":
-                raise Exception(
-                    f"Data processing failed: {process_result.get('error', 'Unknown error')}"
-                )
+                raise Exception(f"Data processing failed: {process_result.get('error', 'Unknown error')}")
 
             # Stage 3: Generate forecasting plots
             self.logger.info("📊 STAGE 3: Generating initial forecasting plots")
             forecast_result = self.stage_forecast_generation()
 
             if forecast_result["status"] != "success":
-                raise Exception(
-                    f"Forecast generation failed: {forecast_result.get('error', 'Unknown error')}"
-                )
+                raise Exception(f"Forecast generation failed: {forecast_result.get('error', 'Unknown error')}")
 
             # Plots are now generated on-demand, no dashboard update needed
 
@@ -552,9 +527,7 @@ class DataUpdateManager:
             duration = (datetime.now() - start_time).total_seconds()
 
             self.logger.info("=" * 70)
-            self.logger.info(
-                f"✅ INITIALIZATION COMPLETED SUCCESSFULLY in {duration:.1f}s"
-            )
+            self.logger.info(f"✅ INITIALIZATION COMPLETED SUCCESSFULLY in {duration:.1f}s")
             self.logger.info("=" * 70)
 
             self.update_status(
@@ -651,9 +624,7 @@ class DataUpdateManager:
                 last_fetch = json.load(f)
 
             # Parse last fetch time
-            last_fetch_time = datetime.fromisoformat(
-                last_fetch.get("last_fetch_time", "1970-01-01")
-            )
+            last_fetch_time = datetime.fromisoformat(last_fetch.get("last_fetch_time", "1970-01-01"))
             days_old = (datetime.now() - last_fetch_time).days
 
             # Check for daily transaction files
@@ -801,42 +772,31 @@ class DataUpdateManager:
 
             if action == "fetch_data":
                 if not access_token:
-                    self.logger.warning(
-                        "⚠️  Skipping data fetch - no access token provided"
-                    )
+                    self.logger.warning("⚠️  Skipping data fetch - no access token provided")
                     continue
 
                 if not self.square_client:
-                    from src.square_client.square_api_client import \
-                        SquareAPIClient
+                    from src.square_client.square_api_client import SquareAPIClient
 
-                    self.square_client = SquareAPIClient(
-                        access_token, str(self.data_dir)
-                    )
+                    self.square_client = SquareAPIClient(access_token, str(self.data_dir))
 
                 result = self.stage_data_fetch(days_back=7)
                 if result["status"] != "success":
-                    self.logger.error(
-                        f"❌ Data fetch failed: {result.get('error', 'Unknown error')}"
-                    )
+                    self.logger.error(f"❌ Data fetch failed: {result.get('error', 'Unknown error')}")
                     success = False
                     continue
 
             elif action == "run_analysis":
                 result = self.stage_data_processing()
                 if result["status"] != "success":
-                    self.logger.error(
-                        f"❌ Analysis failed: {result.get('error', 'Unknown error')}"
-                    )
+                    self.logger.error(f"❌ Analysis failed: {result.get('error', 'Unknown error')}")
                     success = False
                     continue
 
             elif action == "generate_forecasts":
                 result = self.stage_forecast_generation()
                 if result["status"] != "success":
-                    self.logger.error(
-                        f"❌ Forecast generation failed: {result.get('error', 'Unknown error')}"
-                    )
+                    self.logger.error(f"❌ Forecast generation failed: {result.get('error', 'Unknown error')}")
                     success = False
                     continue
 
@@ -857,24 +817,16 @@ def main():
     """CLI interface for the data update manager"""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Data Update Manager for Live Forecasting"
-    )
-    parser.add_argument(
-        "--days", type=int, default=7, help="Days to fetch (default: 7)"
-    )
+    parser = argparse.ArgumentParser(description="Data Update Manager for Live Forecasting")
+    parser.add_argument("--days", type=int, default=7, help="Days to fetch (default: 7)")
     parser.add_argument("--full", action="store_true", help="Force full data refresh")
-    parser.add_argument(
-        "--status", action="store_true", help="Show current status only"
-    )
+    parser.add_argument("--status", action="store_true", help="Show current status only")
     parser.add_argument(
         "--init",
         action="store_true",
         help="Initialize app with historical data (first-time setup)",
     )
-    parser.add_argument(
-        "--data-dir", default="data", help="Data directory (default: data)"
-    )
+    parser.add_argument("--data-dir", default="data", help="Data directory (default: data)")
 
     args = parser.parse_args()
 
@@ -904,9 +856,7 @@ def main():
 
             if init_status["estimated_data_range"]:
                 data_range = init_status["estimated_data_range"]
-                print(
-                    f"Data Range: {data_range['start']} to {data_range['end']} ({data_range['days']} days)"
-                )
+                print(f"Data Range: {data_range['start']} to {data_range['end']} ({data_range['days']} days)")
 
             if status.get("last_error"):
                 print(f"Last Error: {status['last_error']}")
@@ -923,13 +873,9 @@ def main():
                 init_status = manager.get_initialization_status()
                 if init_status["estimated_data_range"]:
                     data_range = init_status["estimated_data_range"]
-                    print(
-                        f"   Existing data: {data_range['start']} to {data_range['end']} ({data_range['days']} days)"
-                    )
+                    print(f"   Existing data: {data_range['start']} to {data_range['end']} ({data_range['days']} days)")
 
-                response = input(
-                    "\nContinue with initialization anyway? This will fetch all historical data. (y/N): "
-                )
+                response = input("\nContinue with initialization anyway? This will fetch all historical data. (y/N): ")
                 if response.lower() != "y":
                     print("Initialization cancelled.")
                     sys.exit(0)
@@ -943,9 +889,7 @@ def main():
                 print(f"📦 Orders fetched: {result.get('orders_fetched', 0)}")
                 if result.get("data_range"):
                     data_range = result["data_range"]
-                    print(
-                        f"📅 Data range: {data_range['start']} to {data_range['end']} ({data_range['days']} days)"
-                    )
+                    print(f"📅 Data range: {data_range['start']} to {data_range['end']} ({data_range['days']} days)")
             elif result["status"] == "already_initialized":
                 print("⚠️  ALREADY INITIALIZED")
                 print(result["message"])

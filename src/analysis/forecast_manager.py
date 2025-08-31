@@ -8,7 +8,6 @@ Separates forecast computation from plot rendering for better architecture.
 """
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -206,16 +205,9 @@ class ForecastManager:
                     df["ds"] = pd.to_datetime(df["ds"])
 
                 deserialized[key] = df
-            elif (
-                isinstance(value, dict)
-                and "data" in value
-                and "index" in value
-                and "name" in value
-            ):
+            elif isinstance(value, dict) and "data" in value and "index" in value and "name" in value:
                 # Series format
-                series = pd.Series(
-                    value["data"], index=value["index"], name=value["name"]
-                )
+                series = pd.Series(value["data"], index=value["index"], name=value["name"])
                 deserialized[key] = series
             elif isinstance(value, list) and len(value) > 0:
                 # Try to convert lists back to numpy arrays if they look numeric
@@ -224,7 +216,7 @@ class ForecastManager:
                         deserialized[key] = np.array(value)
                     else:
                         deserialized[key] = value
-                except:
+                except Exception:
                     deserialized[key] = value
             elif isinstance(value, dict):
                 # Recursively deserialize nested dicts

@@ -23,8 +23,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-import pytz
-
 from src.config_manager import get_config
 
 try:
@@ -63,9 +61,7 @@ class SquareAPIClient:
         self._ensure_directories()
 
         # Initialize Square client
-        self.client = Square(
-            token=access_token, environment=SquareEnvironment.PRODUCTION
-        )
+        self.client = Square(token=access_token, environment=SquareEnvironment.PRODUCTION)
 
         # Get locations
         self.locations = self._get_locations()
@@ -81,16 +77,12 @@ class SquareAPIClient:
                 self.location_name = loc["name"]
                 break
 
-        self.logger.info(f"✅ Connected to Square API")
-        self.logger.info(
-            f"📍 Using location: {self.location_name} ({self.location_id})"
-        )
+        self.logger.info("✅ Connected to Square API")
+        self.logger.info(f"📍 Using location: {self.location_name} ({self.location_id})")
         self.logger.info(f"💾 Data directory: {self.data_dir}")
         self.logger.info(f"🕐 Business timezone: {self.business_timezone}")
         self.logger.info(f"🏪 Business: {self.config.business_name}")
-        self.logger.info(
-            f"📅 Business start date: {self.config.business_start_date.date()}"
-        )
+        self.logger.info(f"📅 Business start date: {self.config.business_start_date.date()}")
 
     def _setup_logging(self):
         """Setup logging configuration"""
@@ -155,9 +147,7 @@ class SquareAPIClient:
         except Exception as e:
             self.logger.error(f"Failed to update last fetch info: {e}")
 
-    def get_fetch_date_range(
-        self, days_back: int = 7, force_full: bool = False
-    ) -> Tuple[datetime, datetime]:
+    def get_fetch_date_range(self, days_back: int = 7, force_full: bool = False) -> Tuple[datetime, datetime]:
         """Calculate optimal date range for fetching data"""
         end_date = datetime.now(timezone.utc)
 
@@ -165,20 +155,14 @@ class SquareAPIClient:
             # Full fetch: get all data from business start date
             business_start = self.config.business_start_date
             start_date = business_start.replace(tzinfo=timezone.utc)
-            self.logger.info(
-                f"📅 Full data fetch from business start: {business_start.date()}"
-            )
+            self.logger.info(f"📅 Full data fetch from business start: {business_start.date()}")
         else:
             # Incremental fetch: get data since last successful fetch
             last_fetch = self.get_last_fetch_info()
-            if last_fetch.get("last_order_time") or last_fetch.get(
-                "last_transaction_time"
-            ):
+            if last_fetch.get("last_order_time") or last_fetch.get("last_transaction_time"):
                 # Start from last successful fetch with configurable overlap for safety
                 # Handle both old and new field names for backward compatibility
-                time_field = last_fetch.get("last_order_time") or last_fetch.get(
-                    "last_transaction_time"
-                )
+                time_field = last_fetch.get("last_order_time") or last_fetch.get("last_transaction_time")
                 last_time = datetime.fromisoformat(time_field.replace("Z", "+00:00"))
                 overlap_hours = self.config.incremental_overlap_hours
                 start_date = last_time - timedelta(hours=overlap_hours)
@@ -222,9 +206,7 @@ class SquareAPIClient:
                     "filter": {
                         "date_time_filter": {
                             "created_at": {
-                                "start_at": start_date.isoformat().replace(
-                                    "+00:00", "Z"
-                                ),
+                                "start_at": start_date.isoformat().replace("+00:00", "Z"),
                                 "end_at": end_date.isoformat().replace("+00:00", "Z"),
                             }
                         },
@@ -259,31 +241,21 @@ class SquareAPIClient:
                         raw_order_data = order.__dict__
                     else:
                         # Fallback: convert to dict representation
-                        raw_order_data = {
-                            attr: getattr(order, attr)
-                            for attr in dir(order)
-                            if not attr.startswith("_")
-                        }
+                        raw_order_data = {attr: getattr(order, attr) for attr in dir(order) if not attr.startswith("_")}
 
                     # Extract date for organization
                     created_at = raw_order_data.get("created_at")
                     if created_at:
                         # Parse date and convert to business timezone
-                        order_datetime_utc = datetime.fromisoformat(
-                            created_at.replace("Z", "+00:00")
-                        )
-                        order_datetime_local = order_datetime_utc.astimezone(
-                            self.business_timezone
-                        )
+                        order_datetime_utc = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                        order_datetime_local = order_datetime_utc.astimezone(self.business_timezone)
                         date_str = order_datetime_local.strftime("%Y-%m-%d")
 
                         if date_str not in transactions_by_date:
                             transactions_by_date[date_str] = []
 
                         # Add timestamp in business timezone to the raw data
-                        raw_order_data["local_datetime"] = (
-                            order_datetime_local.isoformat()
-                        )
+                        raw_order_data["local_datetime"] = order_datetime_local.isoformat()
                         raw_order_data["date"] = date_str
 
                         transactions_by_date[date_str].append(raw_order_data)
@@ -298,14 +270,10 @@ class SquareAPIClient:
 
             except Exception as e:
                 retry_count += 1
-                self.logger.error(
-                    f"❌ Error on page {page}, attempt {retry_count}: {e}"
-                )
+                self.logger.error(f"❌ Error on page {page}, attempt {retry_count}: {e}")
 
                 if retry_count >= max_retries:
-                    self.logger.error(
-                        f"❌ Max retries ({max_retries}) reached, stopping fetch"
-                    )
+                    self.logger.error(f"❌ Max retries ({max_retries}) reached, stopping fetch")
                     break
 
                 # Exponential backoff
@@ -313,9 +281,7 @@ class SquareAPIClient:
                 self.logger.info(f"⏳ Waiting {wait_time}s before retry...")
                 time.sleep(wait_time)
 
-        self.logger.info(
-            f"✅ Fetched {total_orders} raw orders into {len(transactions_by_date)} date groups"
-        )
+        self.logger.info(f"✅ Fetched {total_orders} raw orders into {len(transactions_by_date)} date groups")
         return transactions_by_date
 
     def save_daily_orders(self, orders_by_date: Dict[str, List[Dict]]) -> int:
@@ -339,9 +305,7 @@ class SquareAPIClient:
                     with open(file_path, "r") as f:
                         existing_data = json.load(f)
                 except Exception as e:
-                    self.logger.warning(
-                        f"Could not load existing data for {date_str}: {e}"
-                    )
+                    self.logger.warning(f"Could not load existing data for {date_str}: {e}")
 
             # Merge with new orders (avoid duplicates by order ID)
             existing_ids = {order.get("id", "") for order in existing_data}
@@ -362,23 +326,17 @@ class SquareAPIClient:
                     with open(file_path, "w") as f:
                         json.dump(all_orders, f, indent=2, default=str)
 
-                    self.logger.info(
-                        f"💾 Saved {len(new_orders)} new raw orders for {date_str}"
-                    )
+                    self.logger.info(f"💾 Saved {len(new_orders)} new raw orders for {date_str}")
                     total_saved += len(new_orders)
 
                 except Exception as e:
-                    self.logger.error(
-                        f"❌ Failed to save raw orders for {date_str}: {e}"
-                    )
+                    self.logger.error(f"❌ Failed to save raw orders for {date_str}: {e}")
             else:
                 self.logger.info(f"   No new orders for {date_str}")
 
         return total_saved
 
-    def perform_data_fetch(
-        self, days_back: int = 7, force_full: bool = False
-    ) -> Dict[str, Any]:
+    def perform_data_fetch(self, days_back: int = 7, force_full: bool = False) -> Dict[str, Any]:
         """
         Perform complete data fetch operation with metadata tracking
         Returns summary of the fetch operation
@@ -410,9 +368,7 @@ class SquareAPIClient:
             for orders in orders_by_date.values():
                 for order in orders:
                     order_time = order.get("created_at")
-                    if order_time and (
-                        not latest_order_time or order_time > latest_order_time
-                    ):
+                    if order_time and (not latest_order_time or order_time > latest_order_time):
                         latest_order_time = order_time
 
             # Update metadata
@@ -460,16 +416,10 @@ def main():
     """CLI interface for testing the API client"""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Square API Client for Live Forecasting"
-    )
-    parser.add_argument(
-        "--days", type=int, default=7, help="Days to fetch (default: 7)"
-    )
+    parser = argparse.ArgumentParser(description="Square API Client for Live Forecasting")
+    parser.add_argument("--days", type=int, default=7, help="Days to fetch (default: 7)")
     parser.add_argument("--full", action="store_true", help="Force full data fetch")
-    parser.add_argument(
-        "--data-dir", default="data", help="Data directory (default: data)"
-    )
+    parser.add_argument("--data-dir", default="data", help="Data directory (default: data)")
 
     args = parser.parse_args()
 

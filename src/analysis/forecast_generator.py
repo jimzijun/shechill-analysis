@@ -210,9 +210,7 @@ def generate_forecasts(df, weekday_data):
                 date_labels = []
 
                 for idx_row in weekday_indices:
-                    quantity = (
-                        df.iloc[idx_row][item_name] if item_name in df.columns else 0
-                    )
+                    quantity = df.iloc[idx_row][item_name] if item_name in df.columns else 0
                     weekday_quantities.append(quantity)
 
                     date_formatted = df.iloc[idx_row]["Date"]
@@ -230,14 +228,8 @@ def generate_forecasts(df, weekday_data):
                     "dates": dates,
                     "quantities": weekday_quantities,
                     "date_labels": date_labels,
-                    "avg": (
-                        float(np.mean(weekday_quantities))
-                        if weekday_quantities
-                        else 0.0
-                    ),
-                    "max": (
-                        float(np.max(weekday_quantities)) if weekday_quantities else 0.0
-                    ),
+                    "avg": (float(np.mean(weekday_quantities)) if weekday_quantities else 0.0),
+                    "max": (float(np.max(weekday_quantities)) if weekday_quantities else 0.0),
                     "total_data_points": len(weekday_quantities),
                 }
 
@@ -249,9 +241,7 @@ def generate_forecasts(df, weekday_data):
         else:
             print(f"  ⚠️  Could not generate forecast for {item_name}")
 
-    print(
-        f"\nSuccessfully generated and saved {successful_forecasts} forecasts to data/forecasts/"
-    )
+    print(f"\nSuccessfully generated and saved {successful_forecasts} forecasts to data/forecasts/")
     return successful_forecasts
 
 
@@ -271,7 +261,7 @@ def main():
     successful_count = generate_forecasts(df, weekday_data)
 
     # Print final summary
-    print(f"\n=== FORECAST GENERATION SUMMARY ===")
+    print("\n=== FORECAST GENERATION SUMMARY ===")
     print(f"Items Processed: {len([col for col in df.columns if col != 'Date'])} items")
     print(f"Forecasts Generated: {successful_count} items")
 

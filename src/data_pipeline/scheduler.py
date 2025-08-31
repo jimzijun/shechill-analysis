@@ -18,13 +18,9 @@ Usage:
 import argparse
 import logging
 import os
-import signal
 import sys
-import threading
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -73,9 +69,7 @@ class AutomationScheduler:
             self.logger.info("📊 Starting daily full pipeline")
 
             # Run complete pipeline with incremental data fetch (7 days back for safety)
-            result = self.update_manager.run_full_update_pipeline(
-                days_back=7, force_full=False
-            )
+            result = self.update_manager.run_full_update_pipeline(days_back=7, force_full=False)
 
             if result["status"] == "success":
                 duration = result.get("duration_seconds", 0)
@@ -84,17 +78,11 @@ class AutomationScheduler:
                 # Log detailed results
                 self.logger.info(f"✅ Daily pipeline completed in {duration:.1f}s")
                 for stage_name, stage_result in stages.items():
-                    status_icon = (
-                        "✅" if stage_result.get("status") == "success" else "❌"
-                    )
-                    self.logger.info(
-                        f"   {status_icon} {stage_name}: {stage_result.get('status', 'unknown')}"
-                    )
+                    status_icon = "✅" if stage_result.get("status") == "success" else "❌"
+                    self.logger.info(f"   {status_icon} {stage_name}: {stage_result.get('status', 'unknown')}")
 
             else:
-                self.logger.error(
-                    f"❌ Daily pipeline failed: {result.get('error', 'Unknown error')}"
-                )
+                self.logger.error(f"❌ Daily pipeline failed: {result.get('error', 'Unknown error')}")
 
         except Exception as e:
             self.logger.error(f"❌ Daily pipeline error: {e}")
@@ -105,17 +93,13 @@ class AutomationScheduler:
             self.logger.info("🔄 Starting weekly full sync")
 
             # Run complete pipeline with full data refresh (30 days back)
-            result = self.update_manager.run_full_update_pipeline(
-                days_back=30, force_full=True
-            )
+            result = self.update_manager.run_full_update_pipeline(days_back=30, force_full=True)
 
             if result["status"] == "success":
                 duration = result.get("duration_seconds", 0)
                 self.logger.info(f"✅ Weekly full sync completed in {duration:.1f}s")
             else:
-                self.logger.error(
-                    f"❌ Weekly full sync failed: {result.get('error', 'Unknown error')}"
-                )
+                self.logger.error(f"❌ Weekly full sync failed: {result.get('error', 'Unknown error')}")
 
         except Exception as e:
             self.logger.error(f"❌ Weekly full sync error: {e}")
@@ -177,22 +161,14 @@ class AutomationScheduler:
             self.logger.info("🧪 Running single weekly sync")
             self.weekly_full_sync()
         else:
-            self.logger.error(
-                f"❌ Unknown mode: {mode}. Available modes: daily, weekly"
-            )
+            self.logger.error(f"❌ Unknown mode: {mode}. Available modes: daily, weekly")
 
 
 def main():
     parser = argparse.ArgumentParser(description="SheChill Analysis Scheduler")
-    parser.add_argument(
-        "--mode", choices=["daily", "weekly"], help="Run single operation for testing"
-    )
-    parser.add_argument(
-        "--daemon", action="store_true", help="Run as background daemon"
-    )
-    parser.add_argument(
-        "--data-dir", default="data", help="Data directory (default: data)"
-    )
+    parser.add_argument("--mode", choices=["daily", "weekly"], help="Run single operation for testing")
+    parser.add_argument("--daemon", action="store_true", help="Run as background daemon")
+    parser.add_argument("--data-dir", default="data", help="Data directory (default: data)")
 
     args = parser.parse_args()
 
@@ -205,12 +181,8 @@ def main():
             scheduler.run_daemon()
         else:
             print("Usage:")
-            print(
-                "  python scheduler.py --mode [daily|weekly]  # Test single operation"
-            )
-            print(
-                "  python scheduler.py --daemon               # Run background daemon"
-            )
+            print("  python scheduler.py --mode [daily|weekly]  # Test single operation")
+            print("  python scheduler.py --daemon               # Run background daemon")
             print("")
             print("Schedules:")
             print("  Daily:  10 PM - Full pipeline (fetch, process, forecast)")

@@ -59,11 +59,7 @@ class ConfigManager:
         result = default.copy()
 
         for key, value in override.items():
-            if (
-                key in result
-                and isinstance(result[key], dict)
-                and isinstance(value, dict)
-            ):
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
                 result[key] = self._deep_merge(result[key], value)
             else:
                 result[key] = value
@@ -137,7 +133,5 @@ if __name__ == "__main__":
     print(f"Timezone: {config_mgr.business_timezone}")
     print(f"Overlap Hours: {config_mgr.incremental_overlap_hours}")
 
-    print(f"\nFull config:")
-    import json
-
+    print("\nFull config:")
     print(json.dumps(config_mgr.get_all(), indent=2, default=str))

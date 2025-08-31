@@ -18,8 +18,7 @@ import secrets
 from functools import wraps
 
 import pandas as pd
-from flask import (Flask, flash, jsonify, make_response, redirect,
-                   render_template, request, session, url_for)
+from flask import Flask, flash, jsonify, make_response, redirect, render_template, request, session, url_for
 from plot_renderer import render_item_plot
 
 # Import our custom modules
@@ -214,9 +213,7 @@ def serve_dynamic_plot(item_slug):
         plot_type = request.args.get("type", "grid")
 
         # Render plot
-        plot_base64 = render_item_plot(
-            item_name, forecast_data, quantity_data, plot_type
-        )
+        plot_base64 = render_item_plot(item_name, forecast_data, quantity_data, plot_type)
 
         if not plot_base64:
             return "Error generating plot", 500
@@ -230,20 +227,20 @@ def serve_dynamic_plot(item_slug):
             <style>
                 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
                 html, body {{ height: 100%; }}
-                body {{ 
-                    font-family: Arial, sans-serif; 
+                body {{
+                    font-family: Arial, sans-serif;
                     display: grid;
                     place-items: center;
                     background: white;
                 }}
-                .plot-container {{ 
+                .plot-container {{
                     width: 100%;
                     height: 100%;
                     display: grid;
                     place-items: center;
                 }}
-                .plot-image {{ 
-                    max-width: 100%; 
+                .plot-image {{
+                    max-width: 100%;
                     max-height: 100%;
                     width: auto;
                     height: auto;
@@ -311,9 +308,7 @@ def api_plot(item_slug):
         plot_type = request.args.get("type", "grid")
 
         # Render plot
-        plot_base64 = render_item_plot(
-            item_name, forecast_data, quantity_data, plot_type
-        )
+        plot_base64 = render_item_plot(item_name, forecast_data, quantity_data, plot_type)
 
         if not plot_base64:
             return jsonify({"error": "Error generating plot"}), 500
@@ -359,9 +354,7 @@ def api_forecast_summaries():
                         total_qty += sum(quantities)
                         total_days += len(quantities)
 
-                avg_daily_sales = (
-                    round(total_qty / total_days, 1) if total_days > 0 else 0
-                )
+                avg_daily_sales = round(total_qty / total_days, 1) if total_days > 0 else 0
 
                 # Get forecast trend from forecast DataFrame
                 forecast_df = forecast_data.get("forecast_df")
@@ -404,9 +397,7 @@ def api_forecast_summaries():
 
                             if yhat > 0:
                                 interval_width = (yhat_upper - yhat_lower) / yhat
-                                confidence_score = max(
-                                    0.1, min(0.9, 1 - (interval_width / 2))
-                                )
+                                confidence_score = max(0.1, min(0.9, 1 - (interval_width / 2)))
 
                 summaries.append(
                     {
@@ -572,9 +563,7 @@ def item_detail(item_slug):
     if not item_info:
         return "Item not found", 404
 
-    return render_template(
-        "item_detail.html", item=item_info, plot_url=f"/plot/{item_slug}"
-    )
+    return render_template("item_detail.html", item=item_info, plot_url=f"/plot/{item_slug}")
 
 
 if __name__ == "__main__":
