@@ -3,6 +3,6 @@ pandas==2.1.1
 numpy==1.25.2
 plotly==5.17.0
 prophet==1.1.4
-squareup==38.0.0.20241016
+squareup==43.0.2.20250820
 python-dotenv==1.0.0
 APScheduler==3.10.4

@@ -51,4 +51,4 @@ square_sales_data*.csv
 node_modules/
 
 # Config
-config/*
+config/

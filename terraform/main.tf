@@ -37,6 +37,12 @@ variable "image_name" {
   default     = "shechill-analysis:latest"
 }
 
+variable "persistent_data_path" {
+  description = "Base path on NAS for persistent data storage"
+  type        = string
+  default     = "/volume1/docker/shechill-analysis"
+}
+
 # Docker image build and deployment via SSH
 resource "null_resource" "docker_build_and_deploy" {
   triggers = {
@@ -63,11 +69,25 @@ resource "null_resource" "docker_build_and_deploy" {
   provisioner "local-exec" {
     command = <<-EOT
       ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${var.nas_username}@${var.nas_host} << 'ENDSSH'
+        # Create persistent directories with proper permissions
+        mkdir -p ${var.persistent_data_path}/config
+        mkdir -p ${var.persistent_data_path}/data
+        mkdir -p ${var.persistent_data_path}/logs
+        chmod -R 777 ${var.persistent_data_path}
+        
+        # Ensure directories exist and are writable by container
+        ls -la ${var.persistent_data_path}
+        
         cd /tmp
         /usr/local/bin/docker load < shechill-analysis.tar.gz
         /usr/local/bin/docker stop ${var.container_name} || true
         /usr/local/bin/docker rm ${var.container_name} || true
-        /usr/local/bin/docker run -d --name ${var.container_name} --restart unless-stopped -p ${var.container_port}:8000 ${var.image_name}
+        /usr/local/bin/docker run -d --name ${var.container_name} --restart unless-stopped \
+          -p ${var.container_port}:8000 \
+          -v ${var.persistent_data_path}/config:/app/config \
+          -v ${var.persistent_data_path}/data:/app/data \
+          -v ${var.persistent_data_path}/logs:/app/logs \
+          ${var.image_name}
         rm -f shechill-analysis.tar.gz
         /usr/local/bin/docker ps | grep ${var.container_name}
 ENDSSH

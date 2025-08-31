@@ -2,9 +2,7 @@ name: Deploy to Synology NAS
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    tags: [ "v*" ]
 
 jobs:
   deploy:
@@ -39,7 +37,6 @@ jobs:
           -var="nas_username=${{ secrets.SSH_USER }}"
 
     - name: Terraform Apply
-      if: github.ref == 'refs/heads/main'
       run: |
         cd terraform
         terraform apply \

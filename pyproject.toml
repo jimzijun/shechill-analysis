@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shechill-analysis"
+version = "1.0.1"
+description = "SheChill analysis and data processing application"
+requires-python = ">=3.12"
+dependencies = [
+    "Flask==2.3.3",
+    "pandas==2.1.1",
+    "numpy==1.25.2",
+    "plotly==5.17.0",
+    "prophet==1.1.4",
+    "squareup==43.0.2.20250820",
+    "python-dotenv==1.0.0",
+    "APScheduler==3.10.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "flake8",
+    "black",
+    "isort",
+    "mypy",
+]
+
+[tool.black]
+line-length = 127
+target-version = ['py312']
+
+[tool.isort]
+profile = "black"
+line_length = 127
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+no_strict_optional = true
