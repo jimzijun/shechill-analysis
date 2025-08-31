@@ -103,7 +103,7 @@ class ConfigManager:
         """
         if self._config is None:
             return default
-            
+
         keys = key_path.split(".")
         value: Any = self._config
 
