@@ -221,7 +221,7 @@ class SquareAPIClient:
 
                 result = self.client.orders.search(
                     location_ids=[self.location_id],
-                    query=query_params,
+                    query=query_params,  # type: ignore[arg-type]
                     limit=100,
                     cursor=cursor,
                 )

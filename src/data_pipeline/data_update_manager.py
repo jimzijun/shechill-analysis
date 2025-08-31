@@ -20,7 +20,7 @@ import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from src.analysis import forecast_generator
 from src.analysis.quantity_analysis import QuantityAnalyzer
@@ -574,11 +574,11 @@ class DataUpdateManager:
                 "duration_seconds": duration,
             }
 
-    def detect_system_state(self) -> dict:
+    def detect_system_state(self) -> Dict[str, Any]:
         """Detect current system state and determine what's needed to be ready"""
         self.logger.info("🔍 Detecting system state...")
 
-        state = {
+        state: Dict[str, Any] = {
             "raw_data": self._check_raw_data_state(),
             "csv_data": self._check_csv_data_state(),
             "forecasts": self._check_forecast_state(),
@@ -607,7 +607,7 @@ class DataUpdateManager:
 
         return state
 
-    def _check_raw_data_state(self) -> dict:
+    def _check_raw_data_state(self) -> Dict[str, Any]:
         """Check state of raw transaction data"""
         try:
             last_fetch_file = self.data_dir / "raw_transactions" / "last_fetch.json"
@@ -643,7 +643,7 @@ class DataUpdateManager:
             self.logger.warning(f"Error checking raw data state: {e}")
             return {"exists": False, "has_recent_data": False, "error": str(e)}
 
-    def _check_csv_data_state(self) -> dict:
+    def _check_csv_data_state(self) -> Dict[str, Any]:
         """Check state of processed CSV data"""
         try:
             csv_file = self.data_dir / "quantity_per_day_per_item.csv"
@@ -699,7 +699,7 @@ class DataUpdateManager:
             self.logger.warning(f"Error checking CSV state: {e}")
             return {"exists": False, "up_to_date": False, "error": str(e)}
 
-    def _check_forecast_state(self) -> dict:
+    def _check_forecast_state(self) -> Dict[str, Any]:
         """Check state of forecast data"""
         try:
             forecast_dir = self.data_dir / "forecasts"
