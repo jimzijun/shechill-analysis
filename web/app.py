@@ -578,4 +578,5 @@ if __name__ == "__main__":
     print("⚡ Plots are now generated dynamically - no pre-rendering needed!")
     print("Press Ctrl+C to stop the server")
 
-    app.run(debug=True, host=host, port=port)
+    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
+    app.run(debug=debug_mode, host=host, port=port)
