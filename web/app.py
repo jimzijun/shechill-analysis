@@ -273,7 +273,7 @@ def serve_dynamic_plot(item_slug):
 
     except Exception as e:
         print(f"❌ Error serving plot for {item_name}: {e}")
-        return f"Error generating plot: {str(e)}", 500
+        return "Error generating plot: Internal server error", 500
 
 
 @app.route("/api/items")
@@ -331,7 +331,7 @@ def api_plot(item_slug):
 
     except Exception as e:
         print(f"❌ Error serving plot API for {item_name}: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route("/api/forecast-summaries")
@@ -435,7 +435,7 @@ def api_forecast_summaries():
 
     except Exception as e:
         print(f"❌ Error generating forecast summaries: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route("/api/forecast/<item_slug>")
@@ -551,7 +551,7 @@ def api_forecast_data(item_slug):
 
     except Exception as e:
         print(f"❌ Error serving forecast data for {item_name}: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route("/item/<item_slug>")
