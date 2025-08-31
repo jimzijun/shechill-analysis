@@ -75,6 +75,8 @@ resource "null_resource" "docker_build_and_deploy" {
         /usr/local/bin/docker rm ${var.container_name} || true
         /usr/local/bin/docker run -d --name ${var.container_name} --restart unless-stopped \
           -p ${var.container_port}:8000 \
+          -e SQUARE_ACCESS_TOKEN="$SQUARE_ACCESS_TOKEN" \
+          -e SQUARE_LOCATION_ID="$SQUARE_LOCATION_ID" \
           -v ${var.persistent_data_path}/config:/app/config \
           -v ${var.persistent_data_path}/data:/app/data \
           -v ${var.persistent_data_path}/logs:/app/logs \
@@ -87,68 +89,12 @@ ENDSSH
   }
 }
 
-# Health check with retries
-resource "null_resource" "health_check" {
-  depends_on = [null_resource.docker_build_and_deploy]
-
-  triggers = {
-    deployment_id = null_resource.docker_build_and_deploy.id
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      echo "Starting health check with retries..."
-      max_attempts=12
-      attempt=1
-      
-      while [ $attempt -le $max_attempts ]; do
-        echo "Health check attempt $attempt/$max_attempts"
-        
-        if curl -f -s http://${var.nas_host}:${var.container_port} > /dev/null 2>&1; then
-          echo "✅ Health check passed on attempt $attempt"
-          exit 0
-        fi
-        
-        echo "Health check failed, waiting 10 seconds before retry..."
-        sleep 10
-        attempt=$((attempt + 1))
-      done
-      
-      echo "❌ Health check failed after $max_attempts attempts"
-      exit 1
-    EOT
-  }
-}
-
-# Container status monitoring
-resource "null_resource" "container_monitoring" {
-  depends_on = [null_resource.health_check]
-
-  triggers = {
-    deployment_id = null_resource.docker_build_and_deploy.id
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no -T ${var.nas_username}@${var.nas_host} << 'ENDSSH'
-        echo "=== Container Status ==="
-        /usr/local/bin/docker ps --filter name=${var.container_name} --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-        
-        echo "=== Container Logs (last 10 lines) ==="
-        /usr/local/bin/docker logs --tail 10 ${var.container_name}
-        
-        echo "=== Container Resource Usage ==="
-        /usr/local/bin/docker stats --no-stream ${var.container_name} --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"
-      ENDSSH
-    EOT
-  }
-}
 
 # Outputs
 output "deployment_endpoint" {
   description = "Application endpoint URL (internal)"
   value       = "http://${var.nas_host}:${var.container_port}"
-  depends_on  = [null_resource.health_check]
+  depends_on  = [null_resource.docker_build_and_deploy]
 }
 
 output "https_endpoint_info" {
@@ -157,16 +103,15 @@ output "https_endpoint_info" {
 }
 
 output "deployment_status" {
-  description = "Deployment status with health check results"
+  description = "Deployment status"
   value = {
-    status           = "healthy"
-    container_name   = var.container_name
-    image_name      = var.image_name
-    container_port  = var.container_port
-    health_checked  = true
-    endpoint_url    = "http://${var.nas_host}:${var.container_port}"
+    status         = "deployed"
+    container_name = var.container_name
+    image_name     = var.image_name
+    container_port = var.container_port
+    endpoint_url   = "http://${var.nas_host}:${var.container_port}"
   }
-  depends_on = [null_resource.container_monitoring]
+  depends_on = [null_resource.docker_build_and_deploy]
 }
 
 output "management_commands" {
