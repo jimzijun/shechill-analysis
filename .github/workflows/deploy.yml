@@ -73,7 +73,7 @@ jobs:
 
     - name: Create backup of current container
       run: |
-        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'ENDSSH'
+        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no -T ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'ENDSSH'
           if /usr/local/bin/docker ps -q -f name=${{ env.CONTAINER_NAME }} | grep -q .; then
             echo "Creating backup of current container..."
             /usr/local/bin/docker commit ${{ env.CONTAINER_NAME }} ${{ env.CONTAINER_NAME }}:backup-$(date +%Y%m%d-%H%M%S)
@@ -85,8 +85,8 @@ jobs:
 
     - name: Create upload directory and transfer Docker image to NAS
       run: |
-        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "mkdir -p /tmp/docker-uploads"
-        scp -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/tmp/docker-uploads/
+        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "mkdir -p /volume1/docker/shechill-analysis/uploads"
+        scp -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/volume1/docker/shechill-analysis/uploads/
 
     - name: Terraform Apply
       id: deploy
@@ -125,7 +125,7 @@ jobs:
       run: |
         echo "🔄 Starting rollback procedure..."
         
-        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'ENDSSH'
+        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no -T ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'ENDSSH'
           echo "Stopping failed deployment..."
           /usr/local/bin/docker stop ${{ env.CONTAINER_NAME }} || true
           /usr/local/bin/docker rm ${{ env.CONTAINER_NAME }} || true
@@ -161,7 +161,7 @@ jobs:
     - name: Cleanup old backups
       if: success()
       run: |
-        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'ENDSSH'
+        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no -T ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} << 'ENDSSH'
           echo "Cleaning up old backups (keeping last 3)..."
           /usr/local/bin/docker images --format "table {{.Repository}}:{{.Tag}}" | \
             grep "${{ env.CONTAINER_NAME }}:backup-" | \
