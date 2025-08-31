@@ -101,7 +101,7 @@ class DataUpdateManager:
                     status["estimated_data_range"] = {
                         "start": dates[0].isoformat(),
                         "end": dates[-1].isoformat(),
-                        "days": (dates[-1] - dates[0]).days + 1,
+                        "days": int((dates[-1] - dates[0]).days + 1),
                     }
 
             last_fetch_file = raw_data_dir / "last_fetch.json"
@@ -589,13 +589,13 @@ class DataUpdateManager:
         # Determine required actions
         actions_needed = []
 
-        if not state["raw_data"]["has_recent_data"]:
+        if not state["raw_data"].get("has_recent_data", False):
             actions_needed.append("fetch_data")
 
-        if not state["csv_data"]["exists"] or not state["csv_data"]["up_to_date"]:
+        if not state["csv_data"].get("exists", False) or not state["csv_data"].get("up_to_date", False):
             actions_needed.append("run_analysis")
 
-        if not state["forecasts"]["exists"] or not state["forecasts"]["fresh"]:
+        if not state["forecasts"].get("exists", False) or not state["forecasts"].get("fresh", False):
             actions_needed.append("generate_forecasts")
 
         state["required_actions"] = actions_needed

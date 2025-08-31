@@ -92,7 +92,7 @@ def _load_historical_quantity_data() -> dict:
 
         # Parse dates and group by weekday
         quantity_data = {}
-        weekday_data = {
+        weekday_data: dict[str, list] = {
             "Tuesday": [],
             "Wednesday": [],
             "Thursday": [],

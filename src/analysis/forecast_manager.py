@@ -99,7 +99,7 @@ class ForecastManager:
         Returns:
             List of dicts with item info
         """
-        forecasts = []
+        forecasts: list[dict] = []
 
         if not self.forecast_dir.exists():
             return forecasts

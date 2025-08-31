@@ -187,7 +187,7 @@ class SquareAPIClient:
         """
         self.logger.info(f"📥 Fetching transactions from {start_date} to {end_date}")
 
-        transactions_by_date = {}
+        transactions_by_date: dict[str, list] = {}
         cursor = None
         page = 1
         total_orders = 0
@@ -202,7 +202,7 @@ class SquareAPIClient:
                     time.sleep(rate_limit_delay)
 
                 # Prepare search request
-                query_params = {
+                query_params: Dict[str, Any] = {
                     "filter": {
                         "date_time_filter": {
                             "created_at": {
