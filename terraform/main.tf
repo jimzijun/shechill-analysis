@@ -28,7 +28,7 @@ variable "container_name" {
 variable "container_port" {
   description = "Container port to expose"
   type        = number
-  default     = 8000
+  default     = 8001
 }
 
 variable "image_name" {
@@ -67,7 +67,7 @@ resource "null_resource" "docker_build_and_deploy" {
         /usr/local/bin/docker load < shechill-analysis.tar.gz
         /usr/local/bin/docker stop ${var.container_name} || true
         /usr/local/bin/docker rm ${var.container_name} || true
-        /usr/local/bin/docker run -d --name ${var.container_name} --restart unless-stopped -p ${var.container_port}:${var.container_port} ${var.image_name}
+        /usr/local/bin/docker run -d --name ${var.container_name} --restart unless-stopped -p ${var.container_port}:8000 ${var.image_name}
         rm -f shechill-analysis.tar.gz
         /usr/local/bin/docker ps | grep ${var.container_name}
 ENDSSH
@@ -93,8 +93,13 @@ resource "null_resource" "health_check" {
 
 # Outputs
 output "deployment_endpoint" {
-  description = "Application endpoint URL"
+  description = "Application endpoint URL (internal)"
   value       = "http://${var.nas_host}:${var.container_port}"
+}
+
+output "https_endpoint_info" {
+  description = "HTTPS endpoint configuration info"
+  value       = "Configure reverse proxy: HTTPS ${var.nas_host}:8000 → HTTP 127.0.0.1:${var.container_port}"
 }
 
 output "container_status" {

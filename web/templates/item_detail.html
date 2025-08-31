@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ plot.item_name }} | Shechill Patisserie Forecasting{% endblock %}
+{% block title %}{{ item.item_name }} | Shechill Patisserie Forecasting{% endblock %}
 
 {% block header_stats %}
 <div>Individual Analysis</div>
@@ -145,8 +145,46 @@
     }
     
     .plot-wrapper {
-        position: relative;
-        overflow: hidden;
+        display: grid;
+        width: 100%;
+        aspect-ratio: 3 / 2;
+        min-height: 50vh;
+        grid-template-rows: 1fr;
+    }
+    
+    /* Mobile-specific: remove aspect-ratio constraints to eliminate gaps */
+    @media (max-width: 768px) {
+        .plot-wrapper {
+            aspect-ratio: unset;
+            min-height: unset;
+            height: auto;
+            min-height: 30vh;
+        }
+    }
+    
+    /* Fallback for browsers without aspect-ratio support */
+    @supports not (aspect-ratio: 3 / 2) {
+        .plot-wrapper {
+            height: 50vh;
+        }
+        
+        @media (max-width: 1024px) {
+            .plot-wrapper {
+                height: 40vh;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .plot-wrapper {
+                height: 35vh;
+            }
+        }
+    }
+    
+    .plot-wrapper iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
     }
     
     .modal {
@@ -188,17 +226,254 @@
     .close:hover {
         color: #bbb;
     }
+    
+    /* Forecast table styling */
+    .forecast-table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .forecast-header {
+        padding: 20px;
+        border-bottom: 1px solid #e9ecef;
+        background-color: #f8f9fa;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .forecast-header h3 {
+        margin: 0 0 5px 0;
+        color: #2c3e50;
+        font-size: 1.2em;
+        font-weight: 600;
+    }
+    
+    .forecast-header p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 0.9em;
+    }
+    
+    .table-wrapper {
+        overflow-x: auto;
+        border-radius: 0 0 8px 8px;
+    }
+    
+    .forecast-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9em;
+    }
+    
+    .forecast-table th {
+        background-color: #f8f9fa;
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+        color: #2c3e50;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .forecast-table th:first-child {
+        border-radius: 0 0 0 8px;
+    }
+    
+    .forecast-table th:last-child {
+        border-radius: 0 0 8px 0;
+    }
+    
+    .forecast-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f1f1f1;
+        color: #333;
+    }
+    
+    .forecast-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .forecast-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .forecast-value {
+        font-weight: 600;
+        color: #007bff;
+    }
+    
+    .lower-bound {
+        color: #dc3545;
+    }
+    
+    .upper-bound {
+        color: #28a745;
+    }
+    
+    .loading, .error {
+        text-align: center;
+        padding: 20px;
+        font-style: italic;
+        color: #6c757d;
+    }
+    
+    .error {
+        color: #dc3545;
+    }
+    
+    /* Calendar format specific styling */
+    .calendar-format .week-label {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #2c3e50;
+        text-align: center;
+        vertical-align: middle;
+        min-width: 80px;
+    }
+    
+    .calendar-cell {
+        text-align: center;
+        vertical-align: middle;
+        padding: 10px 8px !important;
+        min-width: 80px;
+        position: relative;
+    }
+    
+    .calendar-cell.empty {
+        color: #ccc;
+        background-color: #f8f9fa;
+    }
+    
+    .forecast-main {
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #007bff;
+        margin-bottom: 2px;
+        line-height: 1.2;
+    }
+    
+    .forecast-bounds {
+        font-size: 0.8em;
+        color: #6c757d;
+        line-height: 1.1;
+        font-style: italic;
+    }
+    
+    /* Color coding for forecast values */
+    .calendar-cell:not(.empty) {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border-left: 3px solid transparent;
+    }
+    
+    .calendar-cell:hover:not(.empty) {
+        background: linear-gradient(135deg, #e7f3ff 0%, #f0f7ff 100%);
+        border-left-color: #007bff;
+    }
+    
+    /* Heat map coloring based on forecast value */
+    .calendar-cell[data-value="high"] .forecast-main {
+        color: #28a745;
+    }
+    
+    .calendar-cell[data-value="medium"] .forecast-main {
+        color: #ffc107;
+    }
+    
+    .calendar-cell[data-value="low"] .forecast-main {
+        color: #dc3545;
+    }
+    
+    /* Mobile responsiveness for calendar table */
+    @media (max-width: 768px) {
+        .forecast-table {
+            font-size: 0.8em;
+        }
+        
+        .forecast-table th,
+        .forecast-table td {
+            padding: 6px 4px;
+        }
+        
+        .calendar-cell {
+            min-width: 60px;
+            padding: 8px 4px !important;
+        }
+        
+        .forecast-main {
+            font-size: 1em;
+            margin-bottom: 1px;
+        }
+        
+        .forecast-bounds {
+            font-size: 0.7em;
+        }
+        
+        .week-label {
+            min-width: 60px;
+            font-size: 0.9em;
+        }
+        
+        .forecast-header {
+            padding: 15px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .forecast-table {
+            font-size: 0.7em;
+        }
+        
+        .calendar-cell {
+            min-width: 50px;
+            padding: 6px 2px !important;
+        }
+        
+        .forecast-bounds {
+            font-size: 0.65em;
+        }
+    }
+    
+    /* Date status styling */
+    .calendar-cell.past {
+        opacity: 0.6;
+        background-color: #f8f9fa;
+        color: #6c757d;
+    }
+    
+    .calendar-cell.past .forecast-main {
+        color: #6c757d;
+    }
+    
+    .calendar-cell.today {
+        border: 2px solid #ffc107;
+        background-color: #fff3cd;
+        font-weight: bold;
+    }
+    
+    .calendar-cell.today .forecast-main {
+        color: #856404;
+        font-weight: bold;
+    }
+    
+    .calendar-cell.future {
+        border-left: 3px solid #007bff;
+        background-color: #ffffff;
+    }
+    
+    .calendar-cell.future .forecast-main {
+        color: #007bff;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <nav class="breadcrumb">
-    <a href="{{ url_for('index') }}">Dashboard</a> / {{ plot.item_name }}
+    <a href="{{ url_for('index') }}">Dashboard</a> / {{ item.item_name }}
 </nav>
 
 <div class="item-header">
-    <h1 class="item-title">{{ plot.item_name }}</h1>
-    <p class="item-subtitle">Sales Analysis with Prophet Forecasting</p>
+    <h1 class="item-title">{{ item.item_name }}</h1>
+    <p class="item-subtitle">Dynamic Sales Analysis with Unified Prophet Forecasting</p>
 </div>
 
 <div class="plot-container">
@@ -207,108 +482,41 @@
         <p>Historical data (blue line) with Prophet forecasting (red dashed) and 80% confidence intervals (shaded area)</p>
     </div>
     <div class="plot-wrapper">
-        <img src="{{ url_for('serve_plot', filename=plot.filename) }}" alt="{{ plot.item_name }} Sales Plot" class="plot-image" id="mainPlot">
-        <div class="zoom-controls">
-            <button class="zoom-btn" onclick="openModal()" title="Full Screen View">🔍</button>
-            <button class="zoom-btn" onclick="downloadPlot()" title="Download Plot">⬇️</button>
-        </div>
+        <iframe src="{{ plot_url }}" id="mainPlot"></iframe>
     </div>
 </div>
 
-<div class="analysis-grid">
-    <div class="analysis-card">
-        <h3 class="analysis-title">
-            📈 Forecasting Insights
-        </h3>
-        <div class="insight-item">
-            <div class="insight-label">Model Type</div>
-            <div class="insight-value">Facebook Prophet with 80% confidence intervals</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Forecast Period</div>
-            <div class="insight-value">Next 4 periods (F+1 to F+4) for each weekday</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Data Filtering</div>
-            <div class="insight-value">Smart zero-handling: excludes pre-introduction periods</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Confidence Level</div>
-            <div class="insight-value">80% prediction intervals shown as shaded areas</div>
-        </div>
+<div class="forecast-table-container">
+    <div class="forecast-header">
+        <h3>📊 Forecast Data Table</h3>
+        <p>Detailed forecast values with trend analysis and confidence intervals</p>
     </div>
-    
-    <div class="analysis-card">
-        <h3 class="analysis-title">
-            📅 Weekday Analysis
-        </h3>
-        <div class="insight-item">
-            <div class="insight-label">Tuesday Pattern</div>
-            <div class="insight-value">View trend and forecast for Tuesday sales</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Wednesday Pattern</div>
-            <div class="insight-value">Mid-week performance analysis</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Weekend Performance</div>
-            <div class="insight-value">Friday-Sunday sales patterns and forecasting</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Monday</div>
-            <div class="insight-value">Excluded (bakery closed)</div>
-        </div>
-    </div>
-    
-    <div class="analysis-card">
-        <h3 class="analysis-title">
-            🎯 Key Features
-        </h3>
-        <div class="insight-item">
-            <div class="insight-label">Historical Data</div>
-            <div class="insight-value">Complete sales history with date labels (M/D format)</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Trend Detection</div>
-            <div class="insight-value">Prophet identifies seasonality and trends automatically</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Uncertainty Quantification</div>
-            <div class="insight-value">Confidence bands help assess forecast reliability</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Business Logic</div>
-            <div class="insight-value">Excludes seasonal items and holiday specials</div>
-        </div>
-    </div>
-    
-    <div class="analysis-card">
-        <h3 class="analysis-title">
-            💡 Usage Tips
-        </h3>
-        <div class="insight-item">
-            <div class="insight-label">Inventory Planning</div>
-            <div class="insight-value">Use forecast values for next week's preparation</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Confidence Intervals</div>
-            <div class="insight-value">Wider bands = higher uncertainty, plan accordingly</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Trend Analysis</div>
-            <div class="insight-value">Look for upward/downward trends in recent data</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">Weekday Comparison</div>
-            <div class="insight-value">Compare performance across different days</div>
-        </div>
+    <div class="table-wrapper">
+        <table id="forecastTable" class="forecast-table calendar-format">
+            <thead>
+                <tr>
+                    <th>Week</th>
+                    <th>Tuesday</th>
+                    <th>Wednesday</th>
+                    <th>Thursday</th>
+                    <th>Friday</th>
+                    <th>Saturday</th>
+                    <th>Sunday</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="loading-row">
+                    <td colspan="7" class="loading">Loading forecast data...</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </div>
 
 <div class="actions">
     <a href="{{ url_for('index') }}" class="btn btn-secondary">← Back to Dashboard</a>
-    <a href="{{ url_for('serve_plot', filename=plot.filename) }}" target="_blank" class="btn">View Full Size</a>
-    <button onclick="downloadPlot()" class="btn">Download Plot</button>
+    <a href="{{ plot_url }}" target="_blank" class="btn">View Full Size</a>
+    <a href="{{ url_for('api_plot', item_slug=item.slug) }}" target="_blank" class="btn">API Data</a>
 </div>
 
 <!-- Modal for full-screen view -->
@@ -336,12 +544,8 @@
     }
     
     function downloadPlot() {
-        const link = document.createElement('a');
-        link.href = '{{ url_for("serve_plot", filename=plot.filename) }}';
-        link.download = '{{ plot.item_name }}_forecast_plot.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Open the plot URL in a new window for download
+        window.open('{{ plot_url }}', '_blank');
     }
     
     // Close modal when clicking outside the image
@@ -360,5 +564,68 @@
             openModal();
         }
     });
+    
+    // Iframe will automatically size with flexbox - no JavaScript needed
+    
+    // Load forecast datatable
+    function loadForecastData() {
+        const tableBody = document.querySelector('#forecastTable tbody');
+        const forecastUrl = `/api/forecast/{{ item.slug }}`;
+        
+        fetch(forecastUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Clear loading row
+                tableBody.innerHTML = '';
+                
+                // Populate table with weekly forecast data
+                data.weeks.forEach(week => {
+                    const tr = document.createElement('tr');
+                    const weekdayNames = ['Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                    
+                    // Week label cell
+                    let rowHTML = `<td class="week-label">${week.week_label}</td>`;
+                    
+                    // Weekday cells
+                    weekdayNames.forEach(day => {
+                        const dayData = week.days[day];
+                        if (dayData) {
+                            const statusClass = dayData.status || 'future';
+                            rowHTML += `
+                                <td class="calendar-cell ${statusClass}">
+                                    <div class="forecast-main">${dayData.forecast}</div>
+                                    <div class="forecast-bounds">(${dayData.lower} - ${dayData.upper})</div>
+                                </td>
+                            `;
+                        } else {
+                            rowHTML += `<td class="calendar-cell empty">-</td>`;
+                        }
+                    });
+                    
+                    tr.innerHTML = rowHTML;
+                    tableBody.appendChild(tr);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading forecast data:', error);
+                tableBody.innerHTML = `
+                    <tr class="error-row">
+                        <td colspan="7" class="error">Error loading forecast data: ${error.message}</td>
+                    </tr>
+                `;
+            });
+    }
+    
+    // Load data when page loads
+    document.addEventListener('DOMContentLoaded', loadForecastData);
 </script>
 {% endblock %}

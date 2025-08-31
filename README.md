@@ -2,27 +2,9 @@
 
 A comprehensive sales analysis and forecasting system for Shechill Patisserie, featuring Prophet-based forecasting and a minimalistic web dashboard.
 
-## 📁 Directory Structure
+## 📁 Project Structure
 
-```
-shechill-analysis/
-├── analysis/                   # Data processing and analysis scripts
-│   ├── quantity_analysis.py    # Transaction data processing
-│   └── visualization_reports.py # Prophet forecasting plots generation
-├── web/                        # Web dashboard application  
-│   ├── app.py                  # Flask web application
-│   └── templates/              # HTML templates
-│       ├── base.html
-│       ├── index.html
-│       └── item_detail.html
-├── data/                       # Data files (input and processed)
-│   ├── transaction-summary.csv # Raw transaction data
-│   └── quantity_per_day_per_item.csv # Processed quantity data
-├── reports/                    # Generated visualizations
-│   └── grid_plots/            # Forecasting plot images
-├── run_analysis.py            # Analysis pipeline runner
-└── run_web.py                 # Web dashboard runner
-```
+See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for detailed directory layout and file descriptions.
 
 ## 🚀 Quick Start
 
@@ -108,7 +90,7 @@ Each plot shows:
 ## 🎯 Output Files
 
 - **Data**: `data/quantity_per_day_per_item.csv` (85 items × 146 dates)
-- **Plots**: `reports/grid_plots/` (85 PNG files with forecasting)
+- **Forecasts**: `data/forecasts/` (85+ JSON files with Prophet forecast data)
 - **Web Access**: Local dashboard at `http://localhost:8000`
 
 ---

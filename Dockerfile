@@ -16,8 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Fix file paths for containerized environment
-RUN sed -i 's|../reports/grid_plots|/app/reports/grid_plots|g' web/app.py
+# Make entrypoint executable
+RUN chmod +x docker-entrypoint.sh
 
 # Expose port
 EXPOSE 8000
@@ -26,5 +26,5 @@ EXPOSE 8000
 ENV FLASK_HOST=0.0.0.0
 ENV FLASK_PORT=8000
 
-# Run the Flask application
-CMD ["python", "web/app.py"]
+# Use entrypoint to run both web and scheduler
+ENTRYPOINT ["./docker-entrypoint.sh"]

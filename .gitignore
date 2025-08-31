@@ -16,9 +16,9 @@ env.bak/
 venv.bak/
 
 # Data files (optional - uncomment if you don't want to track data)
-# *.csv
-# data/
-# reports/
+*.csv
+data/
+
 
 # IDE
 .vscode/
@@ -35,8 +35,20 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Logs
+# Logs directory and files
+logs/
 *.log
+
+# Raw transaction data from Square API
+data/raw_transactions/
+data/last_fetch.json
+data/update_status.json
+
+# Temporary CSV files from old Square fetcher
+square_sales_data*.csv
 
 # Node modules (if any)
 node_modules/
+
+# Config
+config/*

@@ -123,12 +123,85 @@
         background-color: #0056b3;
         color: white;
     }
+    
+    /* Forecast summary styling */
+    .forecast-summary {
+        padding: 15px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border-bottom: 1px solid #e9ecef;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    
+    .forecast-metrics {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .metric-label {
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .metric-value {
+        font-size: 14px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .trend-indicator {
+        font-size: 16px;
+        line-height: 1;
+    }
+    
+    .trend-up {
+        color: #28a745;
+    }
+    
+    .trend-down {
+        color: #dc3545;
+    }
+    
+    .trend-stable {
+        color: #6c757d;
+    }
+    
+    .confidence-bar {
+        width: 100%;
+        height: 4px;
+        background-color: #e9ecef;
+        border-radius: 2px;
+        overflow: hidden;
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+        border-radius: 2px;
+        transition: width 0.3s ease;
+    }
+    
+    .loading-spinner {
+        text-align: center;
+        color: #6c757d;
+        font-size: 14px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="alert">
-    <strong>Dashboard Overview:</strong> View forecasting plots for all bakery items. Each plot shows historical sales data with Prophet forecasting and confidence intervals. Click on any item to see detailed analysis.
+    <strong>Dynamic Dashboard:</strong> View forecasting plots for all bakery items generated on-demand. Each plot shows historical sales data with unified Prophet forecasting and confidence intervals. Click on any item to see detailed analysis.
 </div>
 
 <div class="controls">
@@ -141,21 +214,27 @@
 </div>
 
 <div id="plotsContainer">
-    {% if plots %}
+    {% if items %}
     <div class="plots-grid" id="plotsGrid">
-        {% for plot in plots %}
-        <div class="plot-card" onclick="viewPlot('{{ plot.item_name }}', '{{ plot.filename }}')" data-item="{{ plot.item_name.lower() }}">
-            <img src="{{ url_for('serve_plot', filename=plot.filename) }}" alt="{{ plot.item_name }}" class="plot-image" loading="lazy">
+        {% for item in items %}
+        <div class="plot-card" onclick="viewItem('{{ item.slug }}')" data-item="{{ item.item_name.lower() }}" data-slug="{{ item.slug }}">
+            <div class="forecast-summary">
+                <div class="loading-spinner">🔄 Loading forecast data...</div>
+            </div>
             <div class="plot-info">
-                <div class="plot-title">{{ plot.item_name }}</div>
+                <div class="plot-title">{{ item.item_name }}</div>
+                <div class="plot-meta">
+                    <small>{{ item.generated_at[:10] if item.generated_at else 'Unknown' }}</small>
+                    <small>📊 Dynamic</small>
+                </div>
             </div>
         </div>
         {% endfor %}
     </div>
     {% else %}
     <div class="no-results">
-        <h3>No plots available</h3>
-        <p>No forecasting plots found in the reports directory.</p>
+        <h3>No forecast data available</h3>
+        <p>No forecast data found. Run the visualization analysis first to generate forecasts.</p>
     </div>
     {% endif %}
 </div>
@@ -168,7 +247,7 @@
 
 {% block extra_js %}
 <script>
-    let allPlots = {{ plots|tojson }};
+    let allItems = {{ items|tojson }};
     
     // Search functionality
     document.getElementById('searchBox').addEventListener('input', function(e) {
@@ -215,12 +294,85 @@
         });
     });
     
-    // Plot viewing
-    function viewPlot(itemName, filename) {
-        const itemSlug = itemName.toLowerCase().replace(/\s+/g, '_');
+    // Item viewing
+    function viewItem(itemSlug) {
         window.location.href = `{{ url_for('item_detail', item_slug='') }}${itemSlug}`;
     }
     
+    // Load forecast summaries for cards
+    function loadForecastSummaries() {
+        fetch('/api/forecast-summaries')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Update each card with forecast data
+                data.summaries.forEach(summary => {
+                    const card = document.querySelector(`[data-slug="${summary.slug}"]`);
+                    if (card) {
+                        const forecastSummary = card.querySelector('.forecast-summary');
+                        if (forecastSummary) {
+                            // Get trend indicator
+                            let trendIcon = '➡️';
+                            let trendClass = 'trend-stable';
+                            if (summary.trend_direction === 'up') {
+                                trendIcon = '📈';
+                                trendClass = 'trend-up';
+                            } else if (summary.trend_direction === 'down') {
+                                trendIcon = '📉';
+                                trendClass = 'trend-down';
+                            }
+                            
+                            // Update content
+                            forecastSummary.innerHTML = `
+                                <div class="forecast-metrics">
+                                    <div class="metric-row">
+                                        <span class="metric-label">Avg Daily Sales</span>
+                                        <span class="metric-value">${summary.avg_daily_sales}</span>
+                                    </div>
+                                    <div class="metric-row">
+                                        <span class="metric-label">Next Week Total</span>
+                                        <span class="metric-value">${summary.next_week_forecast}</span>
+                                    </div>
+                                    <div class="metric-row">
+                                        <span class="metric-label">Trend</span>
+                                        <span class="trend-indicator ${trendClass}">${trendIcon}</span>
+                                    </div>
+                                    <div class="confidence-bar">
+                                        <div class="confidence-fill" style="width: ${summary.confidence_score * 100}%"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading forecast summaries:', error);
+                // Show error message in cards
+                document.querySelectorAll('.forecast-summary').forEach(summary => {
+                    if (summary.querySelector('.loading-spinner')) {
+                        summary.innerHTML = `
+                            <div class="loading-spinner" style="color: #dc3545;">
+                                ❌ Error loading forecast data
+                            </div>
+                        `;
+                    }
+                });
+            });
+    }
+    
+    // Load forecast data when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadForecastSummaries();
+    });
     
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
