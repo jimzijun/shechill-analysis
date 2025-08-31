@@ -26,7 +26,10 @@ from plot_renderer import render_item_plot
 from src.analysis.forecast_manager import ForecastManager
 
 # Initialize forecast manager with correct path
-forecast_manager = ForecastManager(forecast_dir="../data/forecasts")
+# Use absolute path resolution to work from both web/ dir and project root
+project_root = Path(__file__).parent.parent
+forecast_dir = project_root / "data" / "forecasts"
+forecast_manager = ForecastManager(forecast_dir=str(forecast_dir))
 
 app = Flask(__name__)
 
@@ -84,7 +87,7 @@ def _create_item_slug(item_name: str) -> str:
 def _load_historical_quantity_data() -> dict:
     """Load historical quantity data from CSV for plot rendering"""
     try:
-        csv_path = "../data/quantity_per_day_per_item.csv"
+        csv_path = project_root / "data" / "quantity_per_day_per_item.csv"
         if not os.path.exists(csv_path):
             return {}
 
