@@ -84,16 +84,16 @@ jobs:
     - name: Basic import test
       run: |
         python -c "
-import sys
-sys.path.append('src')
-sys.path.append('web')
-try:
-    from src.config_manager import ConfigManager
-    from web.app import create_app
-    print('✅ Basic imports successful')
-except ImportError as e:
-    print(f'❌ Import error: {e}')
-    sys.exit(1)
+        import sys
+        sys.path.append('src')
+        sys.path.append('web')
+        try:
+            from src.config_manager import ConfigManager
+            from web.app import create_app
+            print('✅ Basic imports successful')
+        except ImportError as e:
+            print(f'❌ Import error: {e}')
+            sys.exit(1)
         "
 
   security:
