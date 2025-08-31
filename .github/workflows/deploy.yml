@@ -85,7 +85,7 @@ jobs:
 
     - name: Transfer Docker image to NAS
       run: |
-        scp -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:/tmp/
+        scp -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no shechill-analysis.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }}:~/
 
     - name: Terraform Apply
       id: deploy

@@ -53,7 +53,7 @@ resource "null_resource" "docker_build_and_deploy" {
   # Note: Docker image is now built by GitHub Actions workflow
   
   # Note: Docker image is now transferred by GitHub Actions workflow
-  # The image archive should already be available at /tmp/shechill-analysis.tar.gz on the NAS
+  # The image archive should already be available at ~/shechill-analysis.tar.gz on the NAS
   
   # Deploy container on NAS
   provisioner "local-exec" {
@@ -68,7 +68,7 @@ resource "null_resource" "docker_build_and_deploy" {
         # Ensure directories exist and are writable by container
         ls -la ${var.persistent_data_path}
         
-        cd /tmp
+        cd ~
         /usr/local/bin/docker load < shechill-analysis.tar.gz
         /usr/local/bin/docker stop ${var.container_name} || true
         /usr/local/bin/docker rm ${var.container_name} || true
