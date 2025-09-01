@@ -124,7 +124,7 @@ jobs:
           echo "Checking container status and logs..."
           ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "/usr/local/bin/docker ps --filter name=${{ env.CONTAINER_NAME }} && echo '--- Container logs ---' && /usr/local/bin/docker logs --tail 5 ${{ env.CONTAINER_NAME }}" || true
           
-          if ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "curl -f -s http://localhost:8001" > /dev/null 2>&1; then
+          if ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "curl -f -s http://localhost:8001/health" > /dev/null 2>&1; then
             echo "✅ Health check passed!"
             echo "health_status=success" >> $GITHUB_OUTPUT
             exit 0
@@ -170,7 +170,7 @@ jobs:
         
         # Verify rollback
         sleep 10
-        if ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "curl -f -s http://localhost:8001" > /dev/null 2>&1; then
+        if ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "curl -f -s http://localhost:8001/health" > /dev/null 2>&1; then
           echo "✅ Rollback successful"
         else
           echo "❌ Rollback failed"

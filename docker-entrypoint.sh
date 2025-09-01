@@ -40,6 +40,20 @@ mkdir -p data/raw_transactions
 mkdir -p data/forecasts
 echo "✅ Data directories created"
 
+# Start the web dashboard first (for health checks)
+echo ""
+echo "🌐 Starting web dashboard..."
+export FLASK_HOST=${FLASK_HOST:-0.0.0.0}
+export FLASK_PORT=${FLASK_PORT:-8000}
+
+python web/app.py &
+WEB_PID=$!
+
+echo "✅ Web dashboard started (PID: $WEB_PID)"
+
+# Wait a moment for web dashboard to initialize
+sleep 3
+
 # Initialize the system if needed using built-in --init flag
 echo ""
 echo "🔧 Checking if system needs initialization..."
@@ -47,6 +61,7 @@ python -m src.data_pipeline.data_update_manager --status || {
     echo "🚀 System not initialized. Running initial setup..."
     if ! python -m src.data_pipeline.data_update_manager --init; then
         echo "❌ Initialization failed. Cannot start services without proper setup."
+        kill $WEB_PID 2>/dev/null || true
         exit 1
     fi
     echo "✅ System initialized successfully"
@@ -59,18 +74,6 @@ python -m src.data_pipeline.scheduler --daemon &
 SCHEDULER_PID=$!
 
 echo "✅ Scheduler started (PID: $SCHEDULER_PID)"
-
-# Wait a moment for scheduler to initialize
-sleep 3
-
-# Start the web dashboard in background
-echo ""
-echo "🌐 Starting web dashboard..."
-export FLASK_HOST=${FLASK_HOST:-0.0.0.0}
-export FLASK_PORT=${FLASK_PORT:-8000}
-
-python web/app.py &
-WEB_PID=$!
 
 echo "✅ Web dashboard started (PID: $WEB_PID)"
 
