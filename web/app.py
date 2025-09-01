@@ -12,7 +12,11 @@ import sys
 from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
+import logging
 
+# Set up standard logger for the web app (INFO level by default)
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 # Add project root to Python path (must be done before importing custom modules)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -661,8 +665,8 @@ def api_cache_stats():
         stats = cache.get_cache_stats()
         return jsonify({"status": "success", "stats": stats})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
+        logger.error("❌ Error in cache stats endpoint: %s", e, exc_info=True)
+        return jsonify({"status": "error", "message": "Internal server error"}), 500
 
 @app.route("/api/cache/warmup", methods=["POST"])
 @login_required
