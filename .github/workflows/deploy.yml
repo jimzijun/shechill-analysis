@@ -64,12 +64,19 @@ jobs:
         terraform init
 
     - name: Terraform Plan
+      env:
+        SQUARE_ACCESS_TOKEN: ${{ secrets.SQUARE_ACCESS_TOKEN }}
+        SQUARE_LOCATION_ID: ${{ secrets.SQUARE_LOCATION_ID }}
+        TF_VAR_square_access_token: ${{ secrets.SQUARE_ACCESS_TOKEN }}
+        TF_VAR_square_location_id: ${{ secrets.SQUARE_LOCATION_ID }}
       run: |
         cd terraform
         terraform plan \
           -var="nas_host=${{ secrets.NAS_HOST }}" \
           -var="nas_username=${{ secrets.SSH_USER }}" \
-          -var="image_name=${{ env.CONTAINER_NAME }}:${{ steps.version.outputs.version }}"
+          -var="image_name=${{ env.CONTAINER_NAME }}:${{ steps.version.outputs.version }}" \
+          -var="square_access_token=${{ secrets.SQUARE_ACCESS_TOKEN }}" \
+          -var="square_location_id=${{ secrets.SQUARE_LOCATION_ID }}"
 
     - name: Create backup of current container
       run: |
@@ -93,12 +100,16 @@ jobs:
       env:
         SQUARE_ACCESS_TOKEN: ${{ secrets.SQUARE_ACCESS_TOKEN }}
         SQUARE_LOCATION_ID: ${{ secrets.SQUARE_LOCATION_ID }}
+        TF_VAR_square_access_token: ${{ secrets.SQUARE_ACCESS_TOKEN }}
+        TF_VAR_square_location_id: ${{ secrets.SQUARE_LOCATION_ID }}
       run: |
         cd terraform
         terraform apply \
           -var="nas_host=${{ secrets.NAS_HOST }}" \
           -var="nas_username=${{ secrets.SSH_USER }}" \
           -var="image_name=${{ env.CONTAINER_NAME }}:${{ steps.version.outputs.version }}" \
+          -var="square_access_token=${{ secrets.SQUARE_ACCESS_TOKEN }}" \
+          -var="square_location_id=${{ secrets.SQUARE_LOCATION_ID }}" \
           -auto-approve
 
     - name: Post-deployment Health Check
