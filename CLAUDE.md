@@ -68,19 +68,23 @@ docker run -e SQUARE_ACCESS_TOKEN=your_token -p 8000:8000 shechill-analysis
 - `src/data_pipeline/data_update_manager.py` - Main pipeline orchestrator
 - `src/analysis/quantity_analysis.py` - Raw data → analysis-ready CSV conversion
 - `src/analysis/forecast_generator.py` - Prophet time series forecasting
+- `src/analysis/forecast_manager.py` - Forecast data serialization and management
 - `web/app.py` - Flask dashboard with search, filtering, and plot viewing
 - `web/plot_renderer.py` - Dynamic plot generation from forecast JSON data
+- `web/plot_cache.py` - Multi-layer plot caching system for performance
 
 ### Data Flow
 - Raw transactions stored in `data/raw_transactions/` (JSON files by date)
 - Processed data in `data/quantity_per_day_per_item.csv` 
 - Forecast data in `data/forecasts/` (Prophet JSON files per item)
+- Plot cache in `data/plot_cache/` (file-based and in-memory caching)
 - Business logic: Excludes Mondays, filters core bakery categories, smart zero handling
 
 ### Configuration
-- Environment variables in `.env` file
+- Environment variables in `.env` file (Square API token, Flask host/port)
 - Application config in `config/app_config.json`
 - Python 3.11+ required, uses Prophet forecasting library
+- Plot caching system with configurable cache sizes and TTL
 
 ## Git Hooks
 Pre-push hooks automatically run: black, isort, flake8, mypy, and import smoke tests. Skip with `git push --no-verify` (not recommended).

@@ -10,24 +10,22 @@ See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for detailed directory layout a
 
 ### 1. Run Analysis Pipeline
 ```bash
-# Run complete analysis (data processing + visualization)
-python run_analysis.py
+# Run complete data pipeline (Square API → processing → forecasting)
+python -m src.data_pipeline.data_update_manager
 
-# Or run components separately
-python run_analysis.py --quantity-only    # Data processing only
-python run_analysis.py --viz-only         # Visualization only
+# Or run analysis components separately
+python -m src.analysis.quantity_analysis      # Data processing only
+python -m src.analysis.forecast_generator     # Forecasting only
 ```
 
 ### 2. Start Web Dashboard
 ```bash
-# Start web server (default: localhost:8000)
-python run_web.py
+# Start web server with plot caching (default: localhost:8000)
+python web/app.py
+# Access at http://localhost:8000
 
-# Custom port/host
-python run_web.py --port 9000 --host 0.0.0.0
-
-# Make accessible from other machines
-python run_web.py --public
+# Custom host/port via environment variables
+FLASK_HOST=0.0.0.0 FLASK_PORT=9000 python web/app.py
 ```
 
 ### 3. View Results
@@ -49,6 +47,8 @@ python run_web.py --public
 - **Grid/List Views**: Flexible viewing options
 - **Full-Screen Viewing**: Modal zoom and download options
 - **Mobile Responsive**: Works on all devices
+- **Multi-Layer Caching**: File-based and in-memory plot caching for performance
+- **Smart Cache Management**: Automatic cache invalidation and warmup
 
 ## 📈 Prophet Forecasting
 
@@ -67,11 +67,11 @@ Each plot shows:
 - flask (web dashboard)
 
 ### Data Flow
-1. **Raw Data**: `transaction-summary.csv` with Date, Item, Category, Qty
-2. **Processing**: Category filtering, item cleaning, Monday exclusion
-3. **Forecasting**: Prophet models per item/weekday with smart zero handling
-4. **Visualization**: 6-panel weekday grid plots with forecasting
-5. **Web Interface**: Flask dashboard for plot viewing and analysis
+1. **Square API Integration**: Fetches transaction data, saves as daily JSON files
+2. **Data Processing**: Raw JSON → analysis-ready CSV (category filtering, item cleaning, Monday exclusion)
+3. **Prophet Forecasting**: Time series models per item with smart zero handling
+4. **Visualization**: Dynamic plot generation with multi-layer caching
+5. **Web Dashboard**: Flask app with plot caching, search, and forecast viewing
 
 ### Business Logic
 - **Excludes Mondays**: Bakery closed
@@ -125,16 +125,19 @@ mypy src/ web/ --ignore-missing-imports --no-strict-optional
 
 ## 📅 Usage Workflow
 
-1. **Update Data**: Replace `data/transaction-summary.csv` with new data
-2. **Run Analysis**: `python run_analysis.py` to process and generate plots
-3. **Start Dashboard**: `python run_web.py` to view results
-4. **Plan Inventory**: Use forecasting data for next week's preparation
+1. **Fetch Data**: `python -m src.square_client.square_api_client` to pull Square API data
+2. **Run Pipeline**: `python -m src.data_pipeline.data_update_manager` to process and forecast
+3. **Start Dashboard**: `python web/app.py` to view cached results
+4. **Background Updates**: `python -m src.data_pipeline.scheduler --daemon` for automated updates
+5. **Plan Inventory**: Use forecasting data for next week's preparation
 
 ## 🎯 Output Files
 
-- **Data**: `data/quantity_per_day_per_item.csv` (85 items × 146 dates)
-- **Forecasts**: `data/forecasts/` (85+ JSON files with Prophet forecast data)
-- **Web Access**: Local dashboard at `http://localhost:8000`
+- **Raw Transactions**: `data/raw_transactions/` (JSON files by date from Square API)
+- **Processed Data**: `data/quantity_per_day_per_item.csv` (analysis-ready format)
+- **Forecasts**: `data/forecasts/` (Prophet forecast JSON files per item)
+- **Plot Cache**: `data/plot_cache/` (cached plot images for performance)
+- **Web Dashboard**: Local dashboard at `http://localhost:8000`
 
 ---
 
