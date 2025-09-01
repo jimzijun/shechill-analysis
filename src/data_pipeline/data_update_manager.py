@@ -865,12 +865,12 @@ def main():
             print(f"Total Items: {stats.get('total_items', 0)}")
             print(f"Total Transactions: {stats.get('total_transactions', 0)}")
             print(f"Data Coverage: {stats.get('data_coverage_days', 0)} days")
-            
+
             # Exit with appropriate code based on status
-            app_status = status.get('status', 'unknown')
-            if app_status in ['success', 'initialized', 'ready']:
+            app_status = status.get("status", "unknown")
+            if app_status in ["success", "initialized", "ready"]:
                 sys.exit(0)  # Success
-            elif app_status in ['failed', 'error', 'initialization_failed']:
+            elif app_status in ["failed", "error", "initialization_failed"]:
                 sys.exit(1)  # Error
             else:
                 sys.exit(2)  # Unknown/warning state
