@@ -7,23 +7,29 @@ Generates plots on-demand using Prophet forecasting for bakery inventory plannin
 """
 
 import os
+import secrets
 import sys
+from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
 
-# Add project root to Python path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+# Add project root to Python path (must be done before importing custom modules)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import secrets
-from functools import wraps
-
-import pandas as pd
-from flask import Flask, flash, jsonify, make_response, redirect, render_template, request, session, url_for
-from plot_renderer import render_item_plot
-
-# Import our custom modules
-from src.analysis.forecast_manager import ForecastManager
+import pandas as pd  # noqa: E402
+from flask import (  # noqa: E402
+    Flask,
+    flash,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from plot_renderer import render_item_plot  # noqa: E402
+from src.analysis.forecast_manager import ForecastManager  # noqa: E402
 
 # Initialize forecast manager with correct path
 # Use absolute path resolution to work from both web/ dir and project root
@@ -85,7 +91,93 @@ def _create_item_slug(item_name: str) -> str:
 
 
 def _load_historical_quantity_data() -> dict:
-    """Load historical quantity data from CSV for plot rendering"""
+    """Load historical quantity data from CSV for plot rendering with caching"""
+    try:
+        from plot_cache import get_plot_cache
+
+        # Try to get from cache first
+        cache = get_plot_cache()
+        cached_data = cache.get_cached_data("historical_quantity_data")
+        if cached_data:
+            return cached_data
+
+        # Load and process data if not cached
+        csv_path = project_root / "data" / "quantity_per_day_per_item.csv"
+        if not os.path.exists(csv_path):
+            return {}
+
+        df = pd.read_csv(csv_path)
+
+        # Parse dates and group by weekday
+        quantity_data = {}
+        weekday_data: dict[str, list] = {
+            "Tuesday": [],
+            "Wednesday": [],
+            "Thursday": [],
+            "Friday": [],
+            "Saturday": [],
+            "Sunday": [],
+        }
+
+        # Parse each date row
+        for idx, row in df.iterrows():
+            date_formatted = row["Date"]
+            # Parse "07/01 - Tuesday" format
+            import re
+
+            match = re.match(r"(\d+/\d+) - (\w+)", date_formatted)
+            if match:
+                date_str, weekday = match.groups()
+                if weekday in weekday_data:
+                    weekday_data[weekday].append(
+                        {
+                            "index": idx,
+                            "date_str": date_str,
+                            "date_formatted": date_formatted,
+                        }
+                    )
+
+        # Get item columns (exclude Date)
+        item_columns = [col for col in df.columns if col != "Date"]
+
+        # Build quantity data for each item
+        for item_name in item_columns:
+            item_data = {}
+
+            for weekday, date_info_list in weekday_data.items():
+                dates = []
+                quantities = []
+                date_labels = []
+
+                for date_info in date_info_list:
+                    idx = date_info["index"]
+                    quantity = df.iloc[idx][item_name] if item_name in df.columns else 0
+                    quantities.append(quantity)
+                    dates.append(date_info["date_formatted"])
+                    date_labels.append(date_info["date_str"])
+
+                item_data[weekday] = {
+                    "dates": dates,
+                    "quantities": quantities,
+                    "date_labels": date_labels,
+                }
+
+            quantity_data[item_name] = item_data
+
+        # Cache the processed data
+        cache.cache_data("historical_quantity_data", quantity_data)
+        return quantity_data
+
+    except ImportError:
+        # Fallback if cache not available - process directly
+        return _load_historical_quantity_data_direct()
+    except Exception as e:
+        print(f"❌ Error loading quantity data: {e}")
+        return {}
+
+
+def _load_historical_quantity_data_direct() -> dict:
+    """Direct loading of historical data without caching (fallback)"""
     try:
         csv_path = project_root / "data" / "quantity_per_day_per_item.csv"
         if not os.path.exists(csv_path):
@@ -152,7 +244,7 @@ def _load_historical_quantity_data() -> dict:
         return quantity_data
 
     except Exception as e:
-        print(f"❌ Error loading quantity data: {e}")
+        print(f"❌ Error loading quantity data directly: {e}")
         return {}
 
 
@@ -557,6 +649,92 @@ def api_forecast_data(item_slug):
         return jsonify({"error": "Internal server error"}), 500
 
 
+@app.route("/api/cache/stats")
+@login_required
+def api_cache_stats():
+    """API endpoint for cache statistics"""
+    try:
+        from plot_cache import get_plot_cache
+
+        cache = get_plot_cache()
+        stats = cache.get_cache_stats()
+        return jsonify({"status": "success", "stats": stats})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/cache/warmup", methods=["POST"])
+@login_required
+def api_cache_warmup():
+    """API endpoint to trigger cache warmup"""
+    try:
+        from plot_cache import get_plot_cache
+
+        cache = get_plot_cache()
+        items = get_available_items()
+
+        # Pre-load historical data
+        _load_historical_quantity_data()
+
+        # Warmup cache
+        cache.warmup_cache(forecast_manager, items)
+
+        stats = cache.get_cache_stats()
+        return jsonify({"status": "success", "message": "Cache warmup completed", "stats": stats})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/cache/cleanup", methods=["POST"])
+@login_required
+def api_cache_cleanup():
+    """API endpoint to cleanup old cache files"""
+    try:
+        from plot_cache import get_plot_cache
+
+        cache = get_plot_cache()
+
+        max_age_days = request.json.get("max_age_days", 7) if request.is_json else 7
+        cache.cleanup_old_cache(max_age_days=max_age_days)
+
+        stats = cache.get_cache_stats()
+        return jsonify({
+            "status": "success",
+            "message": f"Cache cleanup completed (older than {max_age_days} days)",
+            "stats": stats,
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/cache/invalidate/<item_slug>", methods=["POST"])
+@login_required
+def api_cache_invalidate(item_slug):
+    """API endpoint to invalidate cache for a specific item"""
+    try:
+        from plot_cache import get_plot_cache
+
+        cache = get_plot_cache()
+
+        # Find item by slug
+        items = get_available_items()
+        item_name = None
+        for item in items:
+            if item["slug"] == item_slug:
+                item_name = item["item_name"]
+                break
+
+        if not item_name:
+            return jsonify({"status": "error", "message": "Item not found"}), 404
+
+        cache.invalidate_item_cache(item_name)
+
+        stats = cache.get_cache_stats()
+        return jsonify({"status": "success", "message": f"Cache invalidated for {item_name}", "stats": stats})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route("/item/<item_slug>")
 @login_required
 def item_detail(item_slug):
@@ -576,6 +754,32 @@ def item_detail(item_slug):
     return render_template("item_detail.html", item=item_info, plot_url=f"/plot/{item_slug}")
 
 
+def warmup_cache():
+    """Pre-generate cache for faster initial page loads"""
+    try:
+        from plot_cache import get_plot_cache
+
+        print("🔥 Warming up plot cache...")
+        cache = get_plot_cache()
+        items = get_available_items()
+
+        # Pre-load historical data into cache
+        _load_historical_quantity_data()
+
+        # Warmup cache for all items (this may take a few minutes)
+        cache.warmup_cache(forecast_manager, items)
+
+        # Cleanup old cache files
+        cache.cleanup_old_cache(max_age_days=7)
+
+        stats = cache.get_cache_stats()
+        print(f"✅ Cache warmup complete! Stats: {stats}")
+
+    except Exception as e:
+        print(f"⚠️ Warning: Cache warmup failed: {e}")
+        print("📊 Server will still work, but plots may be slower on first access")
+
+
 if __name__ == "__main__":
     # Get host and port from environment or use defaults
     host = os.environ.get("FLASK_HOST", "127.0.0.1")
@@ -583,9 +787,16 @@ if __name__ == "__main__":
 
     print("Shechill Patisserie Dynamic Forecasting Dashboard")
     print("=" * 50)
-    print("🚀 Starting web server with on-demand plot generation...")
+    print("🚀 Starting web server with plot caching system...")
     print(f"📊 Open http://localhost:{port} in your browser")
-    print("⚡ Plots are now generated dynamically - no pre-rendering needed!")
+
+    # Warm up cache for better performance
+    enable_cache_warmup = os.environ.get("ENABLE_CACHE_WARMUP", "true").lower() == "true"
+    if enable_cache_warmup:
+        warmup_cache()
+    else:
+        print("⚡ Cache warmup disabled - plots will be generated on-demand")
+
     print("Press Ctrl+C to stop the server")
 
     debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
