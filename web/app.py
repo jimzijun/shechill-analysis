@@ -668,6 +668,7 @@ def api_cache_stats():
         logger.error("❌ Error in cache stats endpoint: %s", e, exc_info=True)
         return jsonify({"status": "error", "message": "Internal server error"}), 500
 
+
 @app.route("/api/cache/warmup", methods=["POST"])
 @login_required
 def api_cache_warmup():
@@ -689,6 +690,7 @@ def api_cache_warmup():
     except Exception as e:
         logger.error("Error during cache warmup", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
+
 
 @app.route("/api/cache/cleanup", methods=["POST"])
 @login_required
@@ -713,6 +715,7 @@ def api_cache_cleanup():
     except Exception as e:
         logger.error("Error during cache cleanup", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
+
 
 @app.route("/api/cache/invalidate/<item_slug>", methods=["POST"])
 @login_required
