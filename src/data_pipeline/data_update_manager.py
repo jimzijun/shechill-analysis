@@ -875,6 +875,15 @@ def main():
             else:
                 sys.exit(2)  # Unknown/warning state
 
+            # Exit with appropriate code based on status
+            app_status = status.get("status", "unknown")
+            if app_status in ["success", "initialized", "ready"]:
+                sys.exit(0)  # Success
+            elif app_status in ["failed", "error", "initialization_failed"]:
+                sys.exit(1)  # Error
+            else:
+                sys.exit(2)  # Unknown/warning state
+
         elif args.init:
             # Initialize the app
             if manager.is_app_initialized():
