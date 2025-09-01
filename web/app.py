@@ -6,13 +6,13 @@ A dynamic web interface for viewing sales forecasting plots.
 Generates plots on-demand using Prophet forecasting for bakery inventory planning.
 """
 
+import logging
 import os
 import secrets
 import sys
 from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
-import logging
 
 # Set up standard logger for the web app (INFO level by default)
 logger = logging.getLogger(__name__)
