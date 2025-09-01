@@ -116,24 +116,52 @@ jobs:
       id: health_check
       run: |
         echo "Waiting for application to start..."
-        sleep 30
+        sleep 10
         
-        end_time=$((SECONDS + ${{ env.HEALTH_CHECK_TIMEOUT }}))
+        # First check: Basic container health (shorter timeout)
+        basic_end_time=$((SECONDS + 60))
+        container_ready=false
         
-        while [ $SECONDS -lt $end_time ]; do
-          echo "Checking container status and logs..."
-          ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "/usr/local/bin/docker ps --filter name=${{ env.CONTAINER_NAME }} && echo '--- Container logs ---' && /usr/local/bin/docker logs --tail 5 ${{ env.CONTAINER_NAME }}" || true
+        while [ $SECONDS -lt $basic_end_time ]; do
+          echo "Checking if container is running..."
+          if ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "/usr/local/bin/docker ps --filter name=${{ env.CONTAINER_NAME }} --format '{{.Status}}' | grep -q 'Up'"; then
+            echo "✅ Container is running"
+            container_ready=true
+            break
+          fi
+          echo "Container not ready, retrying in 5 seconds..."
+          sleep 5
+        done
+        
+        if [ "$container_ready" = false ]; then
+          echo "❌ Container failed to start properly"
+          ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "/usr/local/bin/docker logs --tail 20 ${{ env.CONTAINER_NAME }}" || true
+          echo "health_status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
+        # Second check: Application health endpoint (longer timeout for cache warmup)
+        echo "Container ready, now checking application health endpoint..."
+        health_end_time=$((SECONDS + ${{ env.HEALTH_CHECK_TIMEOUT }}))
+        
+        while [ $SECONDS -lt $health_end_time ]; do
+          echo "Checking application health endpoint..."
+          
+          # Show recent logs for debugging
+          ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "/usr/local/bin/docker logs --tail 3 ${{ env.CONTAINER_NAME }}" || true
           
           if ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "curl -f -s http://localhost:8001/health" > /dev/null 2>&1; then
             echo "✅ Health check passed!"
             echo "health_status=success" >> $GITHUB_OUTPUT
             exit 0
           fi
-          echo "Health check failed, retrying in 10 seconds..."
-          sleep 10
+          echo "Health check failed, retrying in 15 seconds..."
+          sleep 15
         done
         
         echo "❌ Health check failed after ${{ env.HEALTH_CHECK_TIMEOUT }} seconds"
+        echo "Final container logs:"
+        ssh -i ~/.ssh/synology_nas -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.NAS_HOST }} "/usr/local/bin/docker logs --tail 10 ${{ env.CONTAINER_NAME }}" || true
         echo "health_status=failed" >> $GITHUB_OUTPUT
         exit 1
 
