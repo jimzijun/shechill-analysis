@@ -687,8 +687,8 @@ def api_cache_warmup():
         stats = cache.get_cache_stats()
         return jsonify({"status": "success", "message": "Cache warmup completed", "stats": stats})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
+        logger.error("Error during cache warmup", exc_info=True)
+        return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
 @app.route("/api/cache/cleanup", methods=["POST"])
 @login_required
@@ -711,8 +711,8 @@ def api_cache_cleanup():
             }
         )
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
+        logger.error("Error during cache cleanup", exc_info=True)
+        return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
 @app.route("/api/cache/invalidate/<item_slug>", methods=["POST"])
 @login_required
@@ -739,7 +739,8 @@ def api_cache_invalidate(item_slug):
         stats = cache.get_cache_stats()
         return jsonify({"status": "success", "message": f"Cache invalidated for {item_name}", "stats": stats})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        logger.error(f"Error invalidating cache for item_slug={item_slug}", exc_info=True)
+        return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
 
 @app.route("/item/<item_slug>")
