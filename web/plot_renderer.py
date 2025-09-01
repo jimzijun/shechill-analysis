@@ -7,19 +7,19 @@ Renders matplotlib/seaborn plots on-demand in Flask using forecast data.
 Uses BytesIO + base64 encoding for direct HTML embedding without file I/O.
 """
 
-import matplotlib
-
-matplotlib.use("Agg")  # Set backend for Flask compatibility
-
 import base64
 import re
 from io import BytesIO
 from typing import Any, Dict, Optional, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+
+# Set backend for Flask compatibility
+matplotlib.use("Agg")
 
 # Set up matplotlib/seaborn styling
 plt.style.use("default")
@@ -380,22 +380,56 @@ def render_item_plot(
     plot_type: str = "grid",
 ) -> Optional[str]:
     """
-    Convenience function to render plots
+    Convenience function to render plots with caching support
 
     Args:
         item_name: Name of the item
         forecast_data: Forecast data from forecast_manager
         quantity_data: Historical quantity data
-        plot_type: 'grid' or 'simple'
+        plot_type: 'grid' or 'simple' (only grid plots are cached and used)
 
     Returns:
         base64-encoded PNG string or None
     """
-    renderer = get_plot_renderer()
-
+    # For grid plots (the only type used in production), use caching
     if plot_type == "grid":
-        return renderer.render_grid_plot(item_name, forecast_data, quantity_data)
+        try:
+            from plot_cache import get_plot_cache
+
+            # Get cache instance
+            cache = get_plot_cache()
+
+            # Get timestamps for cache invalidation
+            forecast_timestamp = forecast_data.get("metadata", {}).get("generated_at", "")
+            historical_timestamp = cache._get_historical_timestamp()
+
+            # Try to get from cache first
+            cached_plot = cache.get_cached_plot(item_name, plot_type, forecast_timestamp, historical_timestamp)
+            if cached_plot:
+                return cached_plot
+
+            # Generate plot if not cached
+            renderer = get_plot_renderer()
+            plot_base64 = renderer.render_grid_plot(item_name, forecast_data, quantity_data)
+
+            # Cache the generated plot
+            if plot_base64:
+                cache.cache_plot(item_name, plot_type, forecast_timestamp, historical_timestamp, plot_base64)
+
+            return plot_base64
+
+        except ImportError:
+            # Fallback if cache not available - render directly
+            renderer = get_plot_renderer()
+            return renderer.render_grid_plot(item_name, forecast_data, quantity_data)
+        except Exception as e:
+            print(f"⚠️ Warning: Cache error for {item_name}, falling back to direct render: {e}")
+            renderer = get_plot_renderer()
+            return renderer.render_grid_plot(item_name, forecast_data, quantity_data)
+
+    # For simple plots (only used in testing), render directly without caching
     elif plot_type == "simple":
+        renderer = get_plot_renderer()
         return renderer.render_simple_plot(item_name, forecast_data)
     else:
         print(f"❌ Unknown plot type: {plot_type}")
