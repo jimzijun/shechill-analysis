@@ -20,7 +20,7 @@ import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional
 
 from src.analysis import forecast_generator
 from src.analysis.quantity_analysis import QuantityAnalyzer

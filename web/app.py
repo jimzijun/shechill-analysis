@@ -576,6 +576,31 @@ def item_detail(item_slug):
     return render_template("item_detail.html", item=item_info, plot_url=f"/plot/{item_slug}")
 
 
+@app.route("/health")
+def health_check():
+    """Basic health check endpoint - returns OK immediately when app is running"""
+    return jsonify({"status": "ok", "message": "Web app is running"}), 200
+
+
+@app.route("/health/ready")
+def readiness_check():
+    """Readiness check - verifies system is fully initialized and ready"""
+    try:
+        # Check if system has been initialized by looking for status file
+        status_file = project_root / "data" / "update_status.json"
+        if not status_file.exists():
+            return jsonify({"status": "not_ready", "message": "System initialization in progress"}), 503
+
+        # Try to load forecast data to ensure system is fully operational
+        items = forecast_manager.get_available_items()
+        return (
+            jsonify({"status": "ready", "message": "System fully initialized and operational", "available_items": len(items)}),
+            200,
+        )
+    except Exception as e:
+        return jsonify({"status": "not_ready", "message": f"System not fully ready: {str(e)}"}), 503
+
+
 if __name__ == "__main__":
     # Get host and port from environment or use defaults
     host = os.environ.get("FLASK_HOST", "127.0.0.1")
