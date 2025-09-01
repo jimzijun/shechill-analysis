@@ -34,9 +34,9 @@ class PlotCache:
         self.max_memory_items = max_memory_items
 
         # In-memory caches
-        self._plot_cache = {}  # plot_key -> base64_string
-        self._data_cache = {}  # data_key -> processed_data
-        self._access_times = {}  # key -> last_access_time
+        self._plot_cache: Dict[str, str] = {}  # plot_key -> base64_string
+        self._data_cache: Dict[str, Any] = {}  # data_key -> processed_data
+        self._access_times: Dict[str, datetime] = {}  # key -> last_access_time
 
         self.ensure_directories()
 
@@ -77,9 +77,7 @@ class PlotCache:
 
         return None
 
-    def cache_plot(
-        self, item_name: str, plot_type: str, forecast_timestamp: str, historical_timestamp: str, plot_base64: str
-    ):
+    def cache_plot(self, item_name: str, plot_type: str, forecast_timestamp: str, historical_timestamp: str, plot_base64: str):
         """
         Store plot in cache
 
@@ -308,7 +306,7 @@ class PlotCache:
 
             # Process data (simplified version of app.py logic)
             quantity_data = {}
-            weekday_data = {
+            weekday_data: Dict[str, list] = {
                 "Tuesday": [],
                 "Wednesday": [],
                 "Thursday": [],
@@ -325,9 +323,7 @@ class PlotCache:
                 if match:
                     date_str, weekday = match.groups()
                     if weekday in weekday_data:
-                        weekday_data[weekday].append(
-                            {"index": idx, "date_str": date_str, "date_formatted": date_formatted}
-                        )
+                        weekday_data[weekday].append({"index": idx, "date_str": date_str, "date_formatted": date_formatted})
 
             item_columns = [col for col in df.columns if col != "Date"]
             for item_name in item_columns:

@@ -29,6 +29,7 @@ from flask import (  # noqa: E402
     url_for,
 )
 from plot_renderer import render_item_plot  # noqa: E402
+
 from src.analysis.forecast_manager import ForecastManager  # noqa: E402
 
 # Initialize forecast manager with correct path
@@ -698,11 +699,13 @@ def api_cache_cleanup():
         cache.cleanup_old_cache(max_age_days=max_age_days)
 
         stats = cache.get_cache_stats()
-        return jsonify({
-            "status": "success",
-            "message": f"Cache cleanup completed (older than {max_age_days} days)",
-            "stats": stats,
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Cache cleanup completed (older than {max_age_days} days)",
+                "stats": stats,
+            }
+        )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
