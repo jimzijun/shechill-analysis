@@ -687,7 +687,7 @@ def api_cache_warmup():
 
         stats = cache.get_cache_stats()
         return jsonify({"status": "success", "message": "Cache warmup completed", "stats": stats})
-    except Exception as e:
+    except Exception:
         logger.error("Error during cache warmup", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
@@ -712,7 +712,7 @@ def api_cache_cleanup():
                 "stats": stats,
             }
         )
-    except Exception as e:
+    except Exception:
         logger.error("Error during cache cleanup", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
@@ -741,7 +741,7 @@ def api_cache_invalidate(item_slug):
 
         stats = cache.get_cache_stats()
         return jsonify({"status": "success", "message": f"Cache invalidated for {item_name}", "stats": stats})
-    except Exception as e:
+    except Exception:
         logger.error(f"Error invalidating cache for item_slug={item_slug}", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
@@ -832,17 +832,19 @@ if __name__ == "__main__":
     if enable_cache_warmup:
         # Import threading to run cache warmup in background
         import threading
+
         print("🔄 Cache warmup will run in background after server starts")
-        
+
         def background_warmup():
             import time
+
             time.sleep(5)  # Wait for server to start
             print("🚀 Starting background cache warmup...")
             try:
                 warmup_cache()
             except Exception as e:
                 print(f"⚠️ Background cache warmup failed: {e}")
-        
+
         # Start warmup in background thread
         warmup_thread = threading.Thread(target=background_warmup, daemon=True)
         warmup_thread.start()
