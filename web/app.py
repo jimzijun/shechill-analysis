@@ -687,7 +687,7 @@ def api_cache_warmup():
 
         stats = cache.get_cache_stats()
         return jsonify({"status": "success", "message": "Cache warmup completed", "stats": stats})
-    except Exception as e:
+    except Exception:
         logger.error("Error during cache warmup", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
@@ -712,7 +712,7 @@ def api_cache_cleanup():
                 "stats": stats,
             }
         )
-    except Exception as e:
+    except Exception:
         logger.error("Error during cache cleanup", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
@@ -741,7 +741,7 @@ def api_cache_invalidate(item_slug):
 
         stats = cache.get_cache_stats()
         return jsonify({"status": "success", "message": f"Cache invalidated for {item_name}", "stats": stats})
-    except Exception as e:
+    except Exception:
         logger.error(f"Error invalidating cache for item_slug={item_slug}", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
@@ -818,7 +818,8 @@ def warmup_cache():
 
 if __name__ == "__main__":
     # Get host and port from environment or use defaults
-    host = os.environ.get("FLASK_HOST", "127.0.0.1")
+    # Default to 0.0.0.0 for container deployments
+    host = os.environ.get("FLASK_HOST", "0.0.0.0")
     port = int(os.environ.get("FLASK_PORT", "8000"))
 
     print("Shechill Patisserie Dynamic Forecasting Dashboard")
@@ -826,10 +827,27 @@ if __name__ == "__main__":
     print("🚀 Starting web server with plot caching system...")
     print(f"📊 Open http://localhost:{port} in your browser")
 
-    # Warm up cache for better performance
+    # Start server first, then warm up cache in background
     enable_cache_warmup = os.environ.get("ENABLE_CACHE_WARMUP", "true").lower() == "true"
     if enable_cache_warmup:
-        warmup_cache()
+        # Import threading to run cache warmup in background
+        import threading
+
+        print("🔄 Cache warmup will run in background after server starts")
+
+        def background_warmup():
+            import time
+
+            time.sleep(5)  # Wait for server to start
+            print("🚀 Starting background cache warmup...")
+            try:
+                warmup_cache()
+            except Exception as e:
+                print(f"⚠️ Background cache warmup failed: {e}")
+
+        # Start warmup in background thread
+        warmup_thread = threading.Thread(target=background_warmup, daemon=True)
+        warmup_thread.start()
     else:
         print("⚡ Cache warmup disabled - plots will be generated on-demand")
 
