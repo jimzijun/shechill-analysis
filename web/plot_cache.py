@@ -12,11 +12,17 @@ Provides multi-layer caching for plot generation to improve performance:
 
 import hashlib
 import json
+
+# Add project root to Python path to import logging config
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.logging_config import PerformanceLogger, get_logger
 
 
 class PlotCache:
@@ -32,6 +38,7 @@ class PlotCache:
         """
         self.cache_dir = Path(cache_dir)
         self.max_memory_items = max_memory_items
+        self.logger = get_logger(__name__, "PlotCache")
 
         # In-memory caches
         self._plot_cache: Dict[str, str] = {}  # plot_key -> base64_string
@@ -39,6 +46,10 @@ class PlotCache:
         self._access_times: Dict[str, datetime] = {}  # key -> last_access_time
 
         self.ensure_directories()
+
+        self.logger.info(
+            "PlotCache initialized", extra={"cache_dir": str(self.cache_dir), "max_memory_items": max_memory_items}
+        )
 
     def ensure_directories(self):
         """Create cache directory structure"""
@@ -66,6 +77,9 @@ class PlotCache:
         # Check memory cache first
         if cache_key in self._plot_cache:
             self._access_times[cache_key] = datetime.now()
+            self.logger.debug(
+                "Cache hit - memory", extra={"item_name": item_name, "plot_type": plot_type, "cache_key": cache_key}
+            )
             return self._plot_cache[cache_key]
 
         # Check file cache
@@ -73,8 +87,12 @@ class PlotCache:
         if cached_plot:
             # Load into memory cache for faster next access
             self._store_in_memory(cache_key, cached_plot)
+            self.logger.debug(
+                "Cache hit - file", extra={"item_name": item_name, "plot_type": plot_type, "cache_key": cache_key}
+            )
             return cached_plot
 
+        self.logger.debug("Cache miss", extra={"item_name": item_name, "plot_type": plot_type, "cache_key": cache_key})
         return None
 
     def cache_plot(self, item_name: str, plot_type: str, forecast_timestamp: str, historical_timestamp: str, plot_base64: str):
@@ -144,7 +162,8 @@ class PlotCache:
 
     def cleanup_old_cache(self, max_age_days: int = 7):
         """Remove old cache files"""
-        cutoff_time = datetime.now() - timedelta(days=max_age_days)
+        with PerformanceLogger(self.logger, "cache cleanup", max_age_days=max_age_days):
+            cutoff_time = datetime.now() - timedelta(days=max_age_days)
 
         # Clean file cache
         for metadata_file in (self.cache_dir / "metadata").glob("*.json"):
@@ -159,7 +178,7 @@ class PlotCache:
                     metadata_file.unlink(missing_ok=True)
 
             except Exception as e:
-                print(f"⚠️ Warning: Could not clean cache file {metadata_file}: {e}")
+                self.logger.warning("Could not clean cache file", extra={"metadata_file": str(metadata_file), "error": str(e)})
 
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
@@ -184,6 +203,9 @@ class PlotCache:
     def warmup_cache(self, forecast_manager, items_list: list):
         """Pre-generate cache for frequently accessed items"""
         from plot_renderer import render_item_plot
+
+        with PerformanceLogger(self.logger, "cache warmup", items_count=len(items_list)):
+            self.logger.info("Starting cache warmup", extra={"items_count": len(items_list)})
 
         print(f"🔥 Warming up plot cache for {len(items_list)} items...")
 

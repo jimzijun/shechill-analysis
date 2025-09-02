@@ -14,6 +14,8 @@ from typing import Any, Dict, Optional
 
 import pytz
 
+from src.logging_config import get_logger
+
 
 class ConfigManager:
     """Manages application configuration loading and access"""
@@ -22,6 +24,7 @@ class ConfigManager:
         """Initialize config manager with config file path"""
         self.config_file = Path(config_file)
         self._config: Optional[Dict[str, Any]] = None
+        self.logger = get_logger(__name__, "ConfigManager")
         self._load_config()
 
     def _load_config(self):
@@ -46,12 +49,12 @@ class ConfigManager:
                 self._config = self._deep_merge(default_config, file_config)
 
             except Exception as e:
-                print(f"⚠️  Warning: Could not load config file {self.config_file}: {e}")
-                print("   Using default configuration")
+                self.logger.warning(
+                    "Could not load config file, using defaults", extra={"config_file": str(self.config_file), "error": str(e)}
+                )
                 self._config = default_config
         else:
-            print(f"⚠️  Config file not found: {self.config_file}")
-            print("   Using default configuration")
+            self.logger.info("Config file not found, using defaults", extra={"config_file": str(self.config_file)})
             self._config = default_config
 
     def _deep_merge(self, default: Dict, override: Dict) -> Dict:
@@ -122,7 +125,9 @@ class ConfigManager:
 
     def reload(self):
         """Reload configuration from file"""
+        self.logger.info("Reloading configuration")
         self._load_config()
+        self.logger.debug("Configuration reloaded successfully")
 
 
 # Global config instance for easy access

@@ -29,6 +29,7 @@ EXPOSE 8000
 # Set environment variables
 ENV FLASK_HOST=0.0.0.0
 ENV FLASK_PORT=8000
+ENV LOG_LEVEL=INFO
 
 # Use entrypoint to run both web and scheduler
 ENTRYPOINT ["./docker-entrypoint.sh"]

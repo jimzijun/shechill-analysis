@@ -14,10 +14,8 @@ This manager coordinates all components of the live forecasting pipeline.
 """
 
 import json
-import logging
 import os
 import sys
-import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -25,6 +23,7 @@ from typing import Any, Dict, Optional
 from src.analysis import forecast_generator
 from src.analysis.quantity_analysis import QuantityAnalyzer
 from src.config_manager import get_config
+from src.logging_config import PerformanceLogger, get_logger
 
 # Import our components using proper src paths
 from src.square_client.square_api_client import SquareAPIClient
@@ -43,12 +42,12 @@ class DataUpdateManager:
         self.config = get_config()
 
         # Setup logging
-        self._setup_logging()
+        self.logger = get_logger(__name__, "DataUpdateManager")
 
         # Initialize Square API client
         self.square_client = SquareAPIClient(access_token, data_dir)
 
-        self.logger.info("🔧 Data Update Manager initialized")
+        self.logger.info("Data Update Manager initialized", extra={"data_dir": data_dir})
 
     def is_app_initialized(self) -> bool:
         """Check if the app has been initialized with data"""
@@ -109,20 +108,6 @@ class DataUpdateManager:
 
         return status
 
-    def _setup_logging(self):
-        """Setup logging configuration"""
-        log_dir = Path("logs")
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        log_file = log_dir / f"update_manager_{datetime.now().strftime('%Y%m%d')}.log"
-
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.FileHandler(log_file), logging.StreamHandler()],
-        )
-        self.logger = logging.getLogger("DataUpdateManager")
-
     def get_update_status(self) -> Dict[str, Any]:
         """Get the current update status"""
         if not self.status_file.exists():
@@ -178,7 +163,9 @@ class DataUpdateManager:
 
     def stage_data_fetch(self, days_back: int = 7, force_full: bool = False) -> Dict[str, Any]:
         """Stage 1: Fetch data from Square API"""
-        self.logger.info("📥 STAGE 1: Fetching data from Square API")
+        self.logger.info(
+            "Starting data fetch stage", extra={"stage": "data_fetch", "days_back": days_back, "force_full": force_full}
+        )
 
         self.update_status(
             {
@@ -191,7 +178,10 @@ class DataUpdateManager:
             result = self.square_client.perform_data_fetch(days_back, force_full)
 
             if result["status"] == "success":
-                self.logger.info(f"✅ Data fetch completed: {result['orders_fetched']} orders")
+                self.logger.info(
+                    "Data fetch completed successfully",
+                    extra={"stage": "data_fetch", "orders_fetched": result["orders_fetched"]},
+                )
                 self.update_status(
                     {
                         "pipeline_stages": {"data_fetch": "completed"},
@@ -200,7 +190,9 @@ class DataUpdateManager:
                 )
                 return {"status": "success", "data": result}
             else:
-                self.logger.error(f"❌ Data fetch failed: {result.get('error', 'Unknown error')}")
+                self.logger.error(
+                    "Data fetch failed", extra={"stage": "data_fetch", "error": result.get("error", "Unknown error")}
+                )
                 self.update_status(
                     {
                         "pipeline_stages": {"data_fetch": "failed"},
@@ -214,13 +206,13 @@ class DataUpdateManager:
 
         except Exception as e:
             error_msg = f"Data fetch stage failed: {e}"
-            self.logger.error(f"❌ {error_msg}")
+            self.logger.error("Data fetch stage failed", extra={"stage": "data_fetch", "error": str(e)}, exc_info=True)
             self.update_status({"pipeline_stages": {"data_fetch": "failed"}, "last_error": error_msg})
             return {"status": "error", "error": error_msg}
 
     def stage_data_processing(self) -> Dict[str, Any]:
         """Stage 2: Process raw JSON data into analysis-ready format"""
-        self.logger.info("🔄 STAGE 2: Processing raw data")
+        self.logger.info("Starting data processing stage", extra={"stage": "data_processing"})
 
         self.update_status(
             {
@@ -231,19 +223,26 @@ class DataUpdateManager:
 
         try:
             # Run the quantity analysis using the QuantityAnalyzer class
-            self.logger.info("   Running quantity analysis...")
-
-            # Create and run the analyzer
-            analyzer = QuantityAnalyzer(str(self.data_dir))
-            analyzer.run_analysis()
+            with PerformanceLogger(self.logger, "quantity analysis", stage="data_processing"):
+                # Create and run the analyzer
+                analyzer = QuantityAnalyzer(str(self.data_dir))
+                analyzer.run_analysis()
 
             # Check if the output file was created
             output_file = self.data_dir / "quantity_per_day_per_item.csv"
             if output_file.exists():
-                self.logger.info("✅ Data processing completed successfully")
-
                 # Get some statistics about the processed data
                 stats = self._analyze_processed_data(output_file)
+
+                self.logger.info(
+                    "Data processing completed successfully",
+                    extra={
+                        "stage": "data_processing",
+                        "output_file": str(output_file),
+                        "total_items": stats.get("total_items", 0),
+                        "data_coverage_days": stats.get("data_coverage_days", 0),
+                    },
+                )
 
                 self.update_status(
                     {
@@ -259,7 +258,10 @@ class DataUpdateManager:
                 }
             else:
                 error_msg = "Data processing completed but output file not found"
-                self.logger.error(f"❌ {error_msg}")
+                self.logger.error(
+                    "Data processing failed",
+                    extra={"stage": "data_processing", "error": error_msg, "expected_output": str(output_file)},
+                )
                 self.update_status(
                     {
                         "pipeline_stages": {"data_processing": "failed"},
@@ -270,8 +272,9 @@ class DataUpdateManager:
 
         except Exception as e:
             error_msg = f"Data processing stage failed: {e}"
-            self.logger.error(f"❌ {error_msg}")
-            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            self.logger.error(
+                "Data processing stage failed", extra={"stage": "data_processing", "error": str(e)}, exc_info=True
+            )
 
             self.update_status(
                 {
@@ -316,7 +319,7 @@ class DataUpdateManager:
 
     def stage_forecast_generation(self) -> Dict[str, Any]:
         """Stage 3: Generate new forecasting plots"""
-        self.logger.info("📊 STAGE 3: Generating forecasting plots")
+        self.logger.info("Starting forecast generation stage", extra={"stage": "forecast_generation"})
 
         self.update_status(
             {
@@ -327,24 +330,30 @@ class DataUpdateManager:
 
         try:
             # Run the visualization generation
-            self.logger.info("   Generating forecasting plots...")
+            with PerformanceLogger(self.logger, "forecast generation", stage="forecast_generation"):
+                # Need to change to project root for forecast_generator to work correctly
+                original_cwd = os.getcwd()
+                try:
+                    os.chdir(self.data_dir.parent)  # Change to project root
 
-            # Need to change to project root for forecast_generator to work correctly
-            original_cwd = os.getcwd()
-            try:
-                os.chdir(self.data_dir.parent)  # Change to project root
+                    # Call the main function from forecast_generator
+                    forecast_generator.main()
 
-                # Call the main function from forecast_generator
-                forecast_generator.main()
-
-            finally:
-                os.chdir(original_cwd)
+                finally:
+                    os.chdir(original_cwd)
 
             # Check if forecast JSON files were generated
             forecasts_dir = self.data_dir / "forecasts"
             if forecasts_dir.exists() and list(forecasts_dir.glob("*_forecast.json")):
                 forecast_count = len(list(forecasts_dir.glob("*_forecast.json")))
-                self.logger.info(f"✅ Forecast generation completed: {forecast_count} forecast files generated")
+                self.logger.info(
+                    "Forecast generation completed successfully",
+                    extra={
+                        "stage": "forecast_generation",
+                        "forecasts_generated": forecast_count,
+                        "forecasts_dir": str(forecasts_dir),
+                    },
+                )
 
                 self.update_status(
                     {
@@ -356,7 +365,15 @@ class DataUpdateManager:
                 return {"status": "success", "forecasts_generated": forecast_count}
             else:
                 error_msg = "Forecast generation completed but no forecast files found"
-                self.logger.error(f"❌ {error_msg}")
+                self.logger.error(
+                    "Forecast generation failed",
+                    extra={
+                        "stage": "forecast_generation",
+                        "error": error_msg,
+                        "forecasts_dir": str(forecasts_dir),
+                        "forecasts_dir_exists": forecasts_dir.exists(),
+                    },
+                )
                 self.update_status(
                     {
                         "pipeline_stages": {"forecast_generation": "failed"},
@@ -367,8 +384,9 @@ class DataUpdateManager:
 
         except Exception as e:
             error_msg = f"Forecast generation stage failed: {e}"
-            self.logger.error(f"❌ {error_msg}")
-            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            self.logger.error(
+                "Forecast generation stage failed", extra={"stage": "forecast_generation", "error": str(e)}, exc_info=True
+            )
 
             self.update_status(
                 {
@@ -382,8 +400,15 @@ class DataUpdateManager:
         """Run the complete data update pipeline"""
         start_time = datetime.now()
 
-        self.logger.info("🚀 STARTING FULL UPDATE PIPELINE")
-        self.logger.info("=" * 60)
+        self.logger.info(
+            "Starting full update pipeline",
+            extra={
+                "operation": "full_pipeline",
+                "days_back": days_back,
+                "force_full": force_full,
+                "start_time": start_time.isoformat(),
+            },
+        )
 
         self.update_status(
             {
@@ -422,9 +447,14 @@ class DataUpdateManager:
             # Success!
             duration = (datetime.now() - start_time).total_seconds()
 
-            self.logger.info("=" * 60)
-            self.logger.info(f"✅ PIPELINE COMPLETED SUCCESSFULLY in {duration:.1f}s")
-            self.logger.info("=" * 60)
+            self.logger.info(
+                "Pipeline completed successfully",
+                extra={
+                    "operation": "full_pipeline",
+                    "duration_seconds": duration,
+                    "stages_completed": list(pipeline_results.keys()),
+                },
+            )
 
             self.update_status(
                 {
@@ -446,10 +476,16 @@ class DataUpdateManager:
             duration = (datetime.now() - start_time).total_seconds()
             error_msg = str(e)
 
-            self.logger.error("=" * 60)
-            self.logger.error(f"❌ PIPELINE FAILED after {duration:.1f}s")
-            self.logger.error(f"Error: {error_msg}")
-            self.logger.error("=" * 60)
+            self.logger.error(
+                "Pipeline failed",
+                extra={
+                    "operation": "full_pipeline",
+                    "duration_seconds": duration,
+                    "error": error_msg,
+                    "stages_attempted": list(pipeline_results.keys()),
+                },
+                exc_info=True,
+            )
 
             self.update_status(
                 {
@@ -471,22 +507,27 @@ class DataUpdateManager:
         """Initialize the app with historical data from business start date"""
         start_time = datetime.now()
 
-        self.logger.info("🚀 INITIALIZING APP - FIRST TIME SETUP")
-        self.logger.info("=" * 70)
+        self.logger.info(
+            "Starting app initialization",
+            extra={
+                "operation": "initialization",
+                "business_start_date": self.config.business_start_date.date().isoformat(),
+                "business_name": self.config.business_name,
+            },
+        )
 
         # Check if already initialized
         if self.is_app_initialized():
-            self.logger.warning("⚠️  App appears to already be initialized")
             init_status = self.get_initialization_status()
-            self.logger.info(f"   Data range: {init_status['estimated_data_range']}")
+            self.logger.warning(
+                "App already initialized",
+                extra={"operation": "initialization", "data_range": init_status.get("estimated_data_range")},
+            )
             return {
                 "status": "already_initialized",
                 "message": "App is already initialized with data",
                 "initialization_status": init_status,
             }
-
-        self.logger.info(f"📅 Business start date: {self.config.business_start_date.date()}")
-        self.logger.info(f"🏪 Business: {self.config.business_name}")
 
         self.update_status(
             {

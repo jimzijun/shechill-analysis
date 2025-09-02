@@ -15,7 +15,6 @@ Features:
 """
 
 import json
-import logging
 import os
 import sys
 import time
@@ -24,6 +23,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from src.config_manager import get_config
+from src.logging_config import get_logger
 
 try:
     from square import Square
@@ -55,7 +55,7 @@ class SquareAPIClient:
         self.business_timezone = self.config.business_timezone
 
         # Setup logging
-        self._setup_logging()
+        self.logger = get_logger(__name__, "SquareAPIClient")
 
         # Create directories
         self._ensure_directories()
@@ -77,29 +77,17 @@ class SquareAPIClient:
                 self.location_name = loc["name"]
                 break
 
-        self.logger.info("✅ Connected to Square API")
-        self.logger.info(f"📍 Using location: {self.location_name} ({self.location_id})")
-        self.logger.info(f"💾 Data directory: {self.data_dir}")
-        self.logger.info(f"🕐 Business timezone: {self.business_timezone}")
-        self.logger.info(f"🏪 Business: {self.config.business_name}")
-        self.logger.info(f"📅 Business start date: {self.config.business_start_date.date()}")
-
-    def _setup_logging(self):
-        """Setup logging configuration"""
-        log_dir = Path("logs")
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        log_file = log_dir / f"square_api_{datetime.now().strftime('%Y%m%d')}.log"
-
-        logging.basicConfig(
-            level=logging.INFO,  # Back to normal logging
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[
-                logging.FileHandler(log_file),
-                logging.StreamHandler(),  # Also log to console
-            ],
+        self.logger.info(
+            "Connected to Square API",
+            extra={
+                "location_name": self.location_name,
+                "location_id": self.location_id,
+                "data_dir": str(self.data_dir),
+                "business_timezone": str(self.business_timezone),
+                "business_name": self.config.business_name,
+                "business_start_date": self.config.business_start_date.date().isoformat(),
+            },
         )
-        self.logger = logging.getLogger("SquareAPIClient")
 
     def _ensure_directories(self):
         """Create necessary directories"""
@@ -114,7 +102,7 @@ class SquareAPIClient:
             locations = getattr(locations_response, "locations", [])
             return [{"id": loc.id, "name": loc.name} for loc in locations]
         except Exception as e:
-            self.logger.error(f"❌ Error getting locations: {e}")
+            self.logger.error("Error getting locations", extra={"error": str(e)}, exc_info=True)
             return []
 
     def get_last_fetch_info(self) -> Dict[str, Any]:
@@ -131,7 +119,7 @@ class SquareAPIClient:
             with open(self.metadata_file, "r") as f:
                 return json.load(f)
         except Exception as e:
-            self.logger.warning(f"Could not read last fetch info: {e}")
+            self.logger.warning("Could not read last fetch info", extra={"error": str(e)})
             return {
                 "last_fetch_time": None,
                 "last_order_time": None,
@@ -145,7 +133,7 @@ class SquareAPIClient:
             with open(self.metadata_file, "w") as f:
                 json.dump(info, f, indent=2, default=str)
         except Exception as e:
-            self.logger.error(f"Failed to update last fetch info: {e}")
+            self.logger.error("Failed to update last fetch info", extra={"error": str(e)}, exc_info=True)
 
     def get_fetch_date_range(self, days_back: int = 7, force_full: bool = False) -> Tuple[datetime, datetime]:
         """Calculate optimal date range for fetching data"""
@@ -342,7 +330,7 @@ class SquareAPIClient:
         Returns summary of the fetch operation
         """
         start_time = datetime.now()
-        self.logger.info("🚀 Starting data fetch operation")
+        self.logger.info("Starting data fetch operation", extra={"days_back": days_back, "force_full": force_full})
 
         try:
             # Calculate date range
@@ -352,7 +340,10 @@ class SquareAPIClient:
             orders_by_date = self.fetch_transactions(start_date, end_date)
 
             if not orders_by_date:
-                self.logger.warning("⚠️  No orders found in date range")
+                self.logger.warning(
+                    "No orders found in date range",
+                    extra={"start_date": start_date.isoformat(), "end_date": end_date.isoformat()},
+                )
                 return {
                     "status": "success",
                     "orders_fetched": 0,
@@ -383,7 +374,15 @@ class SquareAPIClient:
             self.update_last_fetch_info(fetch_info)
 
             duration = (datetime.now() - start_time).total_seconds()
-            self.logger.info(f"✅ Data fetch completed successfully in {duration:.1f}s")
+            self.logger.info(
+                "Data fetch completed successfully",
+                extra={
+                    "duration_seconds": duration,
+                    "orders_fetched": total_saved,
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                },
+            )
             self.logger.info(f"📊 Fetched {total_saved} new raw orders")
 
             return {

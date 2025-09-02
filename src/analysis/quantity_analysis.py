@@ -21,6 +21,8 @@ from typing import Any, Dict
 
 import pandas as pd
 
+from src.logging_config import PerformanceLogger, get_logger
+
 
 class QuantityAnalyzer:
     """Enhanced quantity analysis with JSON data support"""
@@ -30,27 +32,30 @@ class QuantityAnalyzer:
         self.data_dir = Path(data_dir)
         self.raw_data_dir = self.data_dir / "raw_transactions"
         self.output_file = self.data_dir / "quantity_per_day_per_item.csv"
+        self.logger = get_logger(__name__, "QuantityAnalyzer")
 
         # Create directories if needed
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
+        self.logger.info(
+            "QuantityAnalyzer initialized", extra={"data_dir": str(self.data_dir), "output_file": str(self.output_file)}
+        )
+
     def load_json_transactions(self) -> pd.DataFrame:
         """Load and combine all JSON raw order files from Square API"""
-        print("Loading raw order data from Square API...")
+        self.logger.info("Loading raw order data from Square API")
 
         if not self.raw_data_dir.exists():
-            print(f"⚠️  Raw data directory not found: {self.raw_data_dir}")
-            print("   Run Square API fetch first: python scripts/pull_today_sales.py")
+            self.logger.error("Raw data directory not found", extra={"raw_data_dir": str(self.raw_data_dir)})
             return pd.DataFrame()
 
         # Find all JSON files (skip last_fetch.json)
         json_files = [f for f in self.raw_data_dir.glob("*.json") if f.name != "last_fetch.json"]
         if not json_files:
-            print("⚠️  No raw order JSON files found")
-            print("   Run Square API fetch first: python scripts/pull_today_sales.py")
+            self.logger.warning("No raw order JSON files found", extra={"raw_data_dir": str(self.raw_data_dir)})
             return pd.DataFrame()
 
-        print(f"Found {len(json_files)} raw order files")
+        self.logger.info("Found raw order files", extra={"file_count": len(json_files)})
 
         # Process raw orders into transaction records
         all_transactions = []
@@ -369,16 +374,28 @@ class QuantityAnalyzer:
 
     def run_analysis(self):
         """Main analysis workflow"""
-        print("SHECHILL PATISSERIE ENHANCED QUANTITY ANALYSIS")
-        print("=" * 50)
+        with PerformanceLogger(self.logger, "quantity analysis workflow", operation="run_analysis"):
+            # Load and process data
+            df = self.load_json_transactions()
+            if df.empty:
+                self.logger.warning("No transaction data available for analysis")
+                return
 
-        # Load and process data
-        df = self.load_json_transactions()
-        qty_pivot = self.create_quantity_pivot(df)
-        stats = self.generate_basic_stats(df)
+            qty_pivot = self.create_quantity_pivot(df)
+            stats = self.generate_basic_stats(df)
 
-        # Save results
-        self.save_files(qty_pivot)
+            # Save results
+            self.save_files(qty_pivot)
+
+            # Log results
+            self.logger.info(
+                "Analysis completed successfully",
+                extra={
+                    "output_file": str(self.output_file),
+                    "items_processed": len(qty_pivot.columns) - 1 if not qty_pivot.empty else 0,
+                    "date_range_days": len(qty_pivot) if not qty_pivot.empty else 0,
+                },
+            )
 
         # Print summary
         print("\n=== ANALYSIS SUMMARY ===")

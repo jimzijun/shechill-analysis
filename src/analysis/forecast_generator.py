@@ -22,26 +22,40 @@ import pandas as pd
 from prophet import Prophet
 
 from src.analysis.forecast_manager import get_forecast_manager
+from src.logging_config import PerformanceLogger, get_logger
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def ensure_directories():
+def ensure_directories(logger=None):
     """Create forecast data directory structure if it doesn't exist"""
     directories = ["data/forecasts"]
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
-    print(f"Created {len(directories)} forecast directories")
+
+    if logger:
+        logger.debug("Created forecast directories", extra={"directories": directories})
+    else:
+        print(f"Created {len(directories)} forecast directories")
 
 
-def load_quantity_data():
+def load_quantity_data(logger=None):
     """Load and parse the quantity per day per item data"""
-    print("Loading quantity data...")
+    if logger:
+        logger.info("Loading quantity data")
+    else:
+        print("Loading quantity data...")
+
     df = pd.read_csv("data/quantity_per_day_per_item.csv")
 
-    print(f"Loaded data shape: {df.shape}")
-    print(f"Dates: {len(df)} unique dates")
-    print(f"Item columns: {df.shape[1] - 1} items (excluding Date)")
+    if logger:
+        logger.info(
+            "Loaded quantity data", extra={"data_shape": df.shape, "unique_dates": len(df), "item_columns": df.shape[1] - 1}
+        )
+    else:
+        print(f"Loaded data shape: {df.shape}")
+        print(f"Dates: {len(df)} unique dates")
+        print(f"Item columns: {df.shape[1] - 1} items (excluding Date)")
 
     return df
 
@@ -157,7 +171,7 @@ def create_full_timeseries_forecast(df, item_name, forecast_days=28):
         return None, None
 
 
-def generate_forecasts(df, weekday_data):
+def generate_forecasts(df, weekday_data, logger=None):
     """Generate Prophet forecasts for all items and save as JSON data"""
     # Get item columns (exclude Date)
     item_columns = [col for col in df.columns if col != "Date"]
@@ -247,23 +261,29 @@ def generate_forecasts(df, weekday_data):
 
 def main():
     """Main forecast generation workflow"""
-    print("SHECHILL PATISSERIE FORECAST GENERATOR")
-    print("=" * 42)
+    logger = get_logger(__name__, "ForecastGenerator")
 
-    # Setup
-    ensure_directories()
+    with PerformanceLogger(logger, "forecast generation workflow", operation="main"):
+        # Setup
+        ensure_directories(logger)
 
-    # Load and parse data
-    df = load_quantity_data()
-    _, weekday_data = parse_date_rows(df)
+        # Load and parse data
+        df = load_quantity_data(logger)
+        _, weekday_data = parse_date_rows(df)
 
-    # Generate forecasts
-    successful_count = generate_forecasts(df, weekday_data)
+        # Generate forecasts
+        successful_count = generate_forecasts(df, weekday_data, logger)
 
-    # Print final summary
-    print("\n=== FORECAST GENERATION SUMMARY ===")
-    print(f"Items Processed: {len([col for col in df.columns if col != 'Date'])} items")
-    print(f"Forecasts Generated: {successful_count} items")
+        # Log final summary
+        total_items = len([col for col in df.columns if col != "Date"])
+        logger.info(
+            "Forecast generation completed",
+            extra={
+                "items_processed": total_items,
+                "forecasts_generated": successful_count,
+                "success_rate": successful_count / total_items if total_items > 0 else 0,
+            },
+        )
 
     forecast_mgr = get_forecast_manager()
     available_forecasts = forecast_mgr.get_available_forecasts()

@@ -6,19 +6,21 @@ A dynamic web interface for viewing sales forecasting plots.
 Generates plots on-demand using Prophet forecasting for bakery inventory planning.
 """
 
-import logging
 import os
 import secrets
 import sys
+import uuid
 from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
 
-# Set up standard logger for the web app (INFO level by default)
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 # Add project root to Python path (must be done before importing custom modules)
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.logging_config import clear_correlation_context, generate_request_id, get_logger, set_correlation_context
+
+# Initialize logger for web app
+logger = get_logger(__name__, "WebApp")
 
 import pandas as pd  # noqa: E402
 from flask import (  # noqa: E402
@@ -46,6 +48,42 @@ app = Flask(__name__)
 
 # Configure Flask session
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_urlsafe(32))
+
+
+# Request correlation tracking middleware
+@app.before_request
+def before_request():
+    """Set up request correlation tracking"""
+    request_id = generate_request_id()
+    user_session = session.get("user_session_id")
+    if not user_session:
+        user_session = str(uuid.uuid4())
+        session["user_session_id"] = user_session
+
+    set_correlation_context(request_id=request_id, user_session=user_session)
+
+    # Log request start
+    logger.info(
+        "Request started",
+        extra={
+            "method": request.method,
+            "path": request.path,
+            "remote_addr": request.remote_addr,
+            "user_agent": request.headers.get("User-Agent", ""),
+            "is_authenticated": is_authenticated(),
+        },
+    )
+
+
+@app.after_request
+def after_request(response):
+    """Log request completion"""
+    logger.info("Request completed", extra={"status_code": response.status_code, "content_length": response.content_length})
+
+    # Clear correlation context
+    clear_correlation_context()
+    return response
+
 
 # Get webapp password from environment
 WEBAPP_PASSWORD = os.environ.get("WEBAPP_PASSWORD", "shechill2025")
@@ -260,6 +298,8 @@ def login():
         password = request.form.get("password")
         if password == WEBAPP_PASSWORD:
             session["authenticated"] = True
+            logger.info("User authentication successful", extra={"remote_addr": request.remote_addr})
+
             next_page = request.args.get("next")
             # Validate next_page: only allow relative URLs without scheme/netloc
             if next_page:
@@ -269,6 +309,7 @@ def login():
                     return redirect(sanitized)
             return redirect(url_for("index"))
         else:
+            logger.warning("Failed authentication attempt", extra={"remote_addr": request.remote_addr})
             flash("Incorrect password", "error")
 
     return render_template("login.html")
@@ -372,7 +413,7 @@ def serve_dynamic_plot(item_slug):
         return response
 
     except Exception as e:
-        print(f"❌ Error serving plot for {item_name}: {e}")
+        logger.error("Error serving plot", extra={"item_name": item_name, "error": str(e)}, exc_info=True)
         return "Error generating plot: Internal server error", 500
 
 
@@ -430,7 +471,7 @@ def api_plot(item_slug):
         )
 
     except Exception as e:
-        print(f"❌ Error serving plot API for {item_name}: {e}")
+        logger.error("Error serving plot API", extra={"item_name": item_name, "error": str(e)}, exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -534,7 +575,7 @@ def api_forecast_summaries():
         return jsonify({"summaries": summaries, "total_items": len(summaries)})
 
     except Exception as e:
-        print(f"❌ Error generating forecast summaries: {e}")
+        logger.error("Error generating forecast summaries", extra={"error": str(e)}, exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -795,7 +836,7 @@ def warmup_cache():
     try:
         from plot_cache import get_plot_cache
 
-        print("🔥 Warming up plot cache...")
+        logger.info("Starting plot cache warmup")
         cache = get_plot_cache()
         items = get_available_items()
 
@@ -809,11 +850,11 @@ def warmup_cache():
         cache.cleanup_old_cache(max_age_days=7)
 
         stats = cache.get_cache_stats()
-        print(f"✅ Cache warmup complete! Stats: {stats}")
+        logger.info("Cache warmup completed successfully", extra={"cache_stats": stats})
 
     except Exception as e:
-        print(f"⚠️ Warning: Cache warmup failed: {e}")
-        print("📊 Server will still work, but plots may be slower on first access")
+        logger.warning("Cache warmup failed", extra={"error": str(e)})
+        logger.info("Server will continue with on-demand plot generation")
 
 
 if __name__ == "__main__":
@@ -822,10 +863,15 @@ if __name__ == "__main__":
     host = os.environ.get("FLASK_HOST", "0.0.0.0")
     port = int(os.environ.get("FLASK_PORT", "8000"))
 
-    print("Shechill Patisserie Dynamic Forecasting Dashboard")
-    print("=" * 50)
-    print("🚀 Starting web server with plot caching system...")
-    print(f"📊 Open http://localhost:{port} in your browser")
+    logger.info(
+        "Starting Shechill Patisserie web server",
+        extra={
+            "host": host,
+            "port": port,
+            "cache_warmup_enabled": os.environ.get("ENABLE_CACHE_WARMUP", "true").lower() == "true",
+            "debug_mode": os.environ.get("FLASK_DEBUG", "False").lower() == "true",
+        },
+    )
 
     # Start server first, then warm up cache in background
     enable_cache_warmup = os.environ.get("ENABLE_CACHE_WARMUP", "true").lower() == "true"
