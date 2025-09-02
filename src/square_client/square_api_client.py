@@ -15,7 +15,6 @@ Features:
 """
 
 import json
-import logging
 import os
 import sys
 import time
@@ -24,12 +23,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from src.config_manager import get_config
+from src.logging_config import setup_daily_logger
 
 try:
     from square import Square
     from square.environment import SquareEnvironment
 except ImportError:
-    print("❌ Square SDK not installed. Install with: pip install squareup")
+    from src.logging_config import setup_console_logger
+
+    logger = setup_console_logger("SquareAPIClient")
+    logger.error("❌ Square SDK not installed. Install with: pip install squareup")
     sys.exit(1)
 
 try:
@@ -86,20 +89,7 @@ class SquareAPIClient:
 
     def _setup_logging(self):
         """Setup logging configuration"""
-        log_dir = Path("logs")
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        log_file = log_dir / f"square_api_{datetime.now().strftime('%Y%m%d')}.log"
-
-        logging.basicConfig(
-            level=logging.INFO,  # Back to normal logging
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[
-                logging.FileHandler(log_file),
-                logging.StreamHandler(),  # Also log to console
-            ],
-        )
-        self.logger = logging.getLogger("SquareAPIClient")
+        self.logger = setup_daily_logger("SquareAPIClient", "square_api")
 
     def _ensure_directories(self):
         """Create necessary directories"""
@@ -423,16 +413,21 @@ def main():
 
     args = parser.parse_args()
 
+    # Setup logging for CLI
+    from src.logging_config import setup_console_logger
+
+    cli_logger = setup_console_logger("SquareAPIClient-CLI")
+
     # Check for access token
     access_token = os.environ.get("SQUARE_ACCESS_TOKEN")
     if not access_token:
-        print("❌ SQUARE_ACCESS_TOKEN not found in environment variables")
-        print("   Set it with: export SQUARE_ACCESS_TOKEN='your_token_here'")
+        cli_logger.error("❌ SQUARE_ACCESS_TOKEN not found in environment variables")
+        cli_logger.info("   Set it with: export SQUARE_ACCESS_TOKEN='your_token_here'")
         sys.exit(1)
 
-    print("=" * 60)
-    print("SQUARE API CLIENT - LIVE FORECASTING")
-    print("=" * 60)
+    cli_logger.info("=" * 60)
+    cli_logger.info("SQUARE API CLIENT - LIVE FORECASTING")
+    cli_logger.info("=" * 60)
 
     try:
         # Initialize client
@@ -442,18 +437,18 @@ def main():
         result = client.perform_data_fetch(args.days, args.full)
 
         # Print results
-        print("\n" + "=" * 60)
+        cli_logger.info("\n" + "=" * 60)
         if result["status"] == "success":
-            print("✅ SUCCESS!")
-            print(f"📊 Raw orders fetched: {result.get('orders_fetched', 0)}")
-            print(f"⏱️  Duration: {result['duration_seconds']:.1f} seconds")
+            cli_logger.info("✅ SUCCESS!")
+            cli_logger.info(f"📊 Raw orders fetched: {result.get('orders_fetched', 0)}")
+            cli_logger.info(f"⏱️  Duration: {result['duration_seconds']:.1f} seconds")
         else:
-            print("❌ FAILED!")
-            print(f"Error: {result['error']}")
-        print("=" * 60)
+            cli_logger.error("❌ FAILED!")
+            cli_logger.error(f"Error: {result['error']}")
+        cli_logger.info("=" * 60)
 
     except Exception as e:
-        print(f"❌ Fatal error: {e}")
+        cli_logger.error(f"❌ Fatal error: {e}")
         sys.exit(1)
 
 

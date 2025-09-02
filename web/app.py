@@ -6,7 +6,6 @@ A dynamic web interface for viewing sales forecasting plots.
 Generates plots on-demand using Prophet forecasting for bakery inventory planning.
 """
 
-import logging
 import os
 import secrets
 import sys
@@ -14,11 +13,13 @@ from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
 
-# Set up standard logger for the web app (INFO level by default)
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 # Add project root to Python path (must be done before importing custom modules)
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Set up logging using centralized config
+from src.logging_config import setup_console_logger
+
+logger = setup_console_logger("WebApp")
 
 import pandas as pd  # noqa: E402
 from flask import (  # noqa: E402
@@ -177,7 +178,7 @@ def _load_historical_quantity_data() -> dict:
         # Fallback if cache not available - process directly
         return _load_historical_quantity_data_direct()
     except Exception as e:
-        print(f"❌ Error loading quantity data: {e}")
+        logger.error(f"Error loading quantity data: {e}")
         return {}
 
 
@@ -249,7 +250,7 @@ def _load_historical_quantity_data_direct() -> dict:
         return quantity_data
 
     except Exception as e:
-        print(f"❌ Error loading quantity data directly: {e}")
+        logger.error(f"Error loading quantity data directly: {e}")
         return {}
 
 
@@ -372,7 +373,7 @@ def serve_dynamic_plot(item_slug):
         return response
 
     except Exception as e:
-        print(f"❌ Error serving plot for {item_name}: {e}")
+        logger.error(f"Error serving plot for {item_name}: {e}")
         return "Error generating plot: Internal server error", 500
 
 
@@ -430,7 +431,7 @@ def api_plot(item_slug):
         )
 
     except Exception as e:
-        print(f"❌ Error serving plot API for {item_name}: {e}")
+        logger.error(f"Error serving plot API for {item_name}: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -534,7 +535,7 @@ def api_forecast_summaries():
         return jsonify({"summaries": summaries, "total_items": len(summaries)})
 
     except Exception as e:
-        print(f"❌ Error generating forecast summaries: {e}")
+        logger.error(f"Error generating forecast summaries: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -650,7 +651,7 @@ def api_forecast_data(item_slug):
         )
 
     except Exception as e:
-        print(f"❌ Error serving forecast data for {item_name}: {e}")
+        logger.error(f"Error serving forecast data for {item_name}: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -795,7 +796,7 @@ def warmup_cache():
     try:
         from plot_cache import get_plot_cache
 
-        print("🔥 Warming up plot cache...")
+        logger.info("Warming up plot cache...")
         cache = get_plot_cache()
         items = get_available_items()
 
@@ -809,11 +810,11 @@ def warmup_cache():
         cache.cleanup_old_cache(max_age_days=7)
 
         stats = cache.get_cache_stats()
-        print(f"✅ Cache warmup complete! Stats: {stats}")
+        logger.info(f"Cache warmup complete! Stats: {stats}")
 
     except Exception as e:
-        print(f"⚠️ Warning: Cache warmup failed: {e}")
-        print("📊 Server will still work, but plots may be slower on first access")
+        logger.warning(f"Cache warmup failed: {e}")
+        logger.info("Server will still work, but plots may be slower on first access")
 
 
 if __name__ == "__main__":
@@ -822,10 +823,10 @@ if __name__ == "__main__":
     host = os.environ.get("FLASK_HOST", "0.0.0.0")
     port = int(os.environ.get("FLASK_PORT", "8000"))
 
-    print("Shechill Patisserie Dynamic Forecasting Dashboard")
-    print("=" * 50)
-    print("🚀 Starting web server with plot caching system...")
-    print(f"📊 Open http://localhost:{port} in your browser")
+    logger.info("Shechill Patisserie Dynamic Forecasting Dashboard")
+    logger.info("=" * 50)
+    logger.info("Starting web server with plot caching system...")
+    logger.info(f"Open http://localhost:{port} in your browser")
 
     # Start server first, then warm up cache in background
     enable_cache_warmup = os.environ.get("ENABLE_CACHE_WARMUP", "true").lower() == "true"
@@ -833,25 +834,25 @@ if __name__ == "__main__":
         # Import threading to run cache warmup in background
         import threading
 
-        print("🔄 Cache warmup will run in background after server starts")
+        logger.info("Cache warmup will run in background after server starts")
 
         def background_warmup():
             import time
 
             time.sleep(5)  # Wait for server to start
-            print("🚀 Starting background cache warmup...")
+            logger.info("Starting background cache warmup...")
             try:
                 warmup_cache()
             except Exception as e:
-                print(f"⚠️ Background cache warmup failed: {e}")
+                logger.warning(f"Background cache warmup failed: {e}")
 
         # Start warmup in background thread
         warmup_thread = threading.Thread(target=background_warmup, daemon=True)
         warmup_thread.start()
     else:
-        print("⚡ Cache warmup disabled - plots will be generated on-demand")
+        logger.info("Cache warmup disabled - plots will be generated on-demand")
 
-    print("Press Ctrl+C to stop the server")
+    logger.info("Press Ctrl+C to stop the server")
 
     debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
     app.run(debug=debug_mode, host=host, port=port)

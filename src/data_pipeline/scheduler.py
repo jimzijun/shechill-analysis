@@ -16,16 +16,15 @@ Usage:
 """
 
 import argparse
-import logging
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from src.data_pipeline.data_update_manager import DataUpdateManager
+from src.logging_config import setup_daily_logger
 
 
 class AutomationScheduler:
@@ -51,17 +50,7 @@ class AutomationScheduler:
 
     def setup_logging(self):
         """Setup logging for scheduler operations"""
-        log_dir = Path("logs")
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        log_file = log_dir / f"scheduler_{datetime.now().strftime('%Y%m%d')}.log"
-
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.FileHandler(log_file), logging.StreamHandler()],
-        )
-        self.logger = logging.getLogger("AutomationScheduler")
+        self.logger = setup_daily_logger("AutomationScheduler", "scheduler")
 
     def daily_full_pipeline(self):
         """Run complete daily pipeline: fetch, process, and generate forecasts"""
@@ -172,6 +161,9 @@ def main():
 
     args = parser.parse_args()
 
+    # Setup logging for CLI
+    cli_logger = setup_daily_logger("Scheduler-CLI", "scheduler_cli")
+
     try:
         scheduler = AutomationScheduler(args.data_dir)
 
@@ -180,16 +172,16 @@ def main():
         elif args.daemon:
             scheduler.run_daemon()
         else:
-            print("Usage:")
-            print("  python scheduler.py --mode [daily|weekly]  # Test single operation")
-            print("  python scheduler.py --daemon               # Run background daemon")
-            print("")
-            print("Schedules:")
-            print("  Daily:  10 PM - Full pipeline (fetch, process, forecast)")
-            print("  Weekly: Monday 6 AM - Full data integrity sync")
+            cli_logger.info("Usage:")
+            cli_logger.info("  python scheduler.py --mode [daily|weekly]  # Test single operation")
+            cli_logger.info("  python scheduler.py --daemon               # Run background daemon")
+            cli_logger.info("")
+            cli_logger.info("Schedules:")
+            cli_logger.info("  Daily:  10 PM - Full pipeline (fetch, process, forecast)")
+            cli_logger.info("  Weekly: Monday 6 AM - Full data integrity sync")
 
     except Exception as e:
-        print(f"❌ Scheduler failed to start: {e}")
+        cli_logger.error(f"❌ Scheduler failed to start: {e}")
         sys.exit(1)
 
 

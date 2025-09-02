@@ -14,6 +14,8 @@ from typing import Any, Dict, Optional
 
 import pytz
 
+from src.logging_config import setup_daily_logger
+
 
 class ConfigManager:
     """Manages application configuration loading and access"""
@@ -22,6 +24,7 @@ class ConfigManager:
         """Initialize config manager with config file path"""
         self.config_file = Path(config_file)
         self._config: Optional[Dict[str, Any]] = None
+        self.logger = setup_daily_logger("ConfigManager", "config_manager")
         self._load_config()
 
     def _load_config(self):
@@ -46,12 +49,12 @@ class ConfigManager:
                 self._config = self._deep_merge(default_config, file_config)
 
             except Exception as e:
-                print(f"⚠️  Warning: Could not load config file {self.config_file}: {e}")
-                print("   Using default configuration")
+                self.logger.warning(f"⚠️  Warning: Could not load config file {self.config_file}: {e}")
+                self.logger.info("   Using default configuration")
                 self._config = default_config
         else:
-            print(f"⚠️  Config file not found: {self.config_file}")
-            print("   Using default configuration")
+            self.logger.warning(f"⚠️  Config file not found: {self.config_file}")
+            self.logger.info("   Using default configuration")
             self._config = default_config
 
     def _deep_merge(self, default: Dict, override: Dict) -> Dict:
@@ -136,15 +139,16 @@ def get_config() -> ConfigManager:
 
 if __name__ == "__main__":
     # Test configuration loading
-    print("Configuration Manager Test")
-    print("=" * 40)
+    test_logger = setup_daily_logger("ConfigManager-Test", "config_manager_test")
+    test_logger.info("Configuration Manager Test")
+    test_logger.info("=" * 40)
 
     config_mgr = ConfigManager()
 
-    print(f"Business Name: {config_mgr.business_name}")
-    print(f"Start Date: {config_mgr.business_start_date}")
-    print(f"Timezone: {config_mgr.business_timezone}")
-    print(f"Overlap Hours: {config_mgr.incremental_overlap_hours}")
+    test_logger.info(f"Business Name: {config_mgr.business_name}")
+    test_logger.info(f"Start Date: {config_mgr.business_start_date}")
+    test_logger.info(f"Timezone: {config_mgr.business_timezone}")
+    test_logger.info(f"Overlap Hours: {config_mgr.incremental_overlap_hours}")
 
-    print("\nFull config:")
-    print(json.dumps(config_mgr.get_all(), indent=2, default=str))
+    test_logger.info("\nFull config:")
+    test_logger.info(json.dumps(config_mgr.get_all(), indent=2, default=str))
