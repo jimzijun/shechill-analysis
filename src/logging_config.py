@@ -79,17 +79,14 @@ def setup_logger(
     # Consistent formatter for all handlers
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-    # Console handler
-    if console and not console_only:
+    # Console handler (consolidate logic to avoid duplication)
+    if console or console_only:
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
-
-    # Console only mode
+    
+    # Console only mode - exit early, no file handlers needed
     if console_only:
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
         return logger
 
     # File handlers
@@ -129,7 +126,8 @@ def setup_console_logger(name: str, level: int = logging.INFO) -> logging.Logger
 
 if __name__ == "__main__":
     # Test the logging configuration
-    print("Testing centralized logging configuration...")
+    test_logger = setup_console_logger("LoggingConfigTest")
+    test_logger.info("Testing centralized logging configuration...")
 
     # Test different logger types
     daily_logger = setup_daily_logger("TestDaily", "test_daily")
@@ -146,5 +144,5 @@ if __name__ == "__main__":
     daily_logger.warning("Warning message")
     daily_logger.error("Error message")
 
-    print("✅ Logging test completed. Check logs/ directory for output files.")
-    print("📁 Expected files: test_daily_YYYYMMDD.log, test_rotating.log")
+    test_logger.info("✅ Logging test completed. Check logs/ directory for output files.")
+    test_logger.info("📁 Expected files: test_daily_YYYYMMDD.log, test_rotating.log")

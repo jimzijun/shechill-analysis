@@ -15,6 +15,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from src.logging_config import setup_daily_logger
+
 
 class ForecastManager:
     """Manages forecast data storage and retrieval"""
@@ -22,6 +24,7 @@ class ForecastManager:
     def __init__(self, forecast_dir: str = "data/forecasts"):
         """Initialize forecast manager with storage directory"""
         self.forecast_dir = Path(forecast_dir)
+        self.logger = setup_daily_logger("ForecastManager", "forecast_manager")
         self.ensure_directories()
 
     def ensure_directories(self):
@@ -60,7 +63,7 @@ class ForecastManager:
             return True
 
         except Exception as e:
-            print(f"❌ Error saving forecast for {item_name}: {e}")
+            self.logger.error(f"❌ Error saving forecast for {item_name}: {e}")
             return False
 
     def load_item_forecast(self, item_name: str) -> Optional[Dict[str, Any]]:
@@ -89,7 +92,7 @@ class ForecastManager:
             return forecast_data
 
         except Exception as e:
-            print(f"❌ Error loading forecast for {item_name}: {e}")
+            self.logger.error(f"❌ Error loading forecast for {item_name}: {e}")
             return None
 
     def get_available_forecasts(self) -> List[Dict[str, str]]:
@@ -120,7 +123,7 @@ class ForecastManager:
                 )
 
             except Exception as e:
-                print(f"⚠️  Warning: Could not read forecast file {filepath}: {e}")
+                self.logger.warning(f"⚠️  Warning: Could not read forecast file {filepath}: {e}")
 
         # Sort by item name
         forecasts.sort(key=lambda x: x["item_name"])
@@ -138,7 +141,7 @@ class ForecastManager:
             return False
 
         except Exception as e:
-            print(f"❌ Error deleting forecast for {item_name}: {e}")
+            self.logger.error(f"❌ Error deleting forecast for {item_name}: {e}")
             return False
 
     def _sanitize_filename(self, item_name: str) -> str:
@@ -238,8 +241,9 @@ def get_forecast_manager() -> ForecastManager:
 
 if __name__ == "__main__":
     # Test forecast manager
-    print("Forecast Manager Test")
-    print("=" * 40)
+    test_logger = setup_daily_logger("ForecastManager-Test", "forecast_manager_test")
+    test_logger.info("Forecast Manager Test")
+    test_logger.info("=" * 40)
 
     mgr = ForecastManager()
 
@@ -259,17 +263,17 @@ if __name__ == "__main__":
 
     # Test save/load
     item_name = "Test Croissant"
-    print(f"Testing save/load for: {item_name}")
+    test_logger.info(f"Testing save/load for: {item_name}")
 
     success = mgr.save_item_forecast(item_name, test_forecast)
-    print(f"Save successful: {success}")
+    test_logger.info(f"Save successful: {success}")
 
     loaded = mgr.load_item_forecast(item_name)
-    print(f"Load successful: {loaded is not None}")
+    test_logger.info(f"Load successful: {loaded is not None}")
 
     if loaded:
-        print(f"Metadata: {loaded.get('metadata', {})}")
+        test_logger.info(f"Metadata: {loaded.get('metadata', {})}")
 
     # Show available forecasts
     available = mgr.get_available_forecasts()
-    print(f"Available forecasts: {len(available)}")
+    test_logger.info(f"Available forecasts: {len(available)}")
