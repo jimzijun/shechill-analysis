@@ -15,7 +15,6 @@ Features:
 """
 
 import json
-import logging
 import os
 import sys
 import time
@@ -24,6 +23,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from src.config_manager import get_config
+from src.logging_config import setup_daily_logger
 
 try:
     from square import Square
@@ -86,20 +86,7 @@ class SquareAPIClient:
 
     def _setup_logging(self):
         """Setup logging configuration"""
-        log_dir = Path("logs")
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        log_file = log_dir / f"square_api_{datetime.now().strftime('%Y%m%d')}.log"
-
-        logging.basicConfig(
-            level=logging.INFO,  # Back to normal logging
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[
-                logging.FileHandler(log_file),
-                logging.StreamHandler(),  # Also log to console
-            ],
-        )
-        self.logger = logging.getLogger("SquareAPIClient")
+        self.logger = setup_daily_logger("SquareAPIClient", "square_api")
 
     def _ensure_directories(self):
         """Create necessary directories"""

@@ -12,11 +12,19 @@ Provides multi-layer caching for plot generation to improve performance:
 
 import hashlib
 import json
+
+# Set up logging using centralized config
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.logging_config import setup_rotating_logger
+
+logger = setup_rotating_logger("PlotCache", "plot_cache.log", console=False)
 
 
 class PlotCache:
@@ -66,6 +74,7 @@ class PlotCache:
         # Check memory cache first
         if cache_key in self._plot_cache:
             self._access_times[cache_key] = datetime.now()
+            logger.debug(f"Memory cache hit for plot: {item_name} ({plot_type})")
             return self._plot_cache[cache_key]
 
         # Check file cache
@@ -73,8 +82,10 @@ class PlotCache:
         if cached_plot:
             # Load into memory cache for faster next access
             self._store_in_memory(cache_key, cached_plot)
+            logger.debug(f"File cache hit for plot: {item_name} ({plot_type})")
             return cached_plot
 
+        logger.debug(f"Cache miss for plot: {item_name} ({plot_type})")
         return None
 
     def cache_plot(self, item_name: str, plot_type: str, forecast_timestamp: str, historical_timestamp: str, plot_base64: str):
@@ -92,6 +103,7 @@ class PlotCache:
 
         # Store in memory cache
         self._store_in_memory(cache_key, plot_base64)
+        logger.debug(f"Cached plot: {item_name} ({plot_type})")
 
         # Store in file cache for persistence
         self._save_plot_to_file(
@@ -110,7 +122,9 @@ class PlotCache:
         """Get cached processed data"""
         if data_key in self._data_cache:
             self._access_times[data_key] = datetime.now()
+            logger.debug(f"Data cache hit: {data_key}")
             return self._data_cache[data_key]
+        logger.debug(f"Data cache miss: {data_key}")
         return None
 
     def cache_data(self, data_key: str, data: Any):
@@ -119,6 +133,7 @@ class PlotCache:
 
     def invalidate_item_cache(self, item_name: str):
         """Remove all cached data for a specific item"""
+        logger.info(f"Invalidating cache for item: {item_name}")
         # Remove from memory cache
         keys_to_remove = []
         for key in self._plot_cache.keys():
@@ -140,11 +155,13 @@ class PlotCache:
                         plot_file.unlink(missing_ok=True)
                         metadata_file.unlink(missing_ok=True)
             except Exception as e:
-                print(f"⚠️ Warning: Could not remove cache file {plot_file}: {e}")
+                logger.warning(f"Could not remove cache file {plot_file}: {e}")
 
     def cleanup_old_cache(self, max_age_days: int = 7):
         """Remove old cache files"""
+        logger.info(f"Starting cache cleanup for files older than {max_age_days} days")
         cutoff_time = datetime.now() - timedelta(days=max_age_days)
+        cleaned_count = 0
 
         # Clean file cache
         for metadata_file in (self.cache_dir / "metadata").glob("*.json"):
@@ -157,9 +174,12 @@ class PlotCache:
                     plot_file = self.cache_dir / "plots" / f"{metadata_file.stem}.png"
                     plot_file.unlink(missing_ok=True)
                     metadata_file.unlink(missing_ok=True)
+                    cleaned_count += 1
 
             except Exception as e:
-                print(f"⚠️ Warning: Could not clean cache file {metadata_file}: {e}")
+                logger.warning(f"Could not clean cache file {metadata_file}: {e}")
+
+        logger.info(f"Cache cleanup completed: removed {cleaned_count} old cache files")
 
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
@@ -185,7 +205,7 @@ class PlotCache:
         """Pre-generate cache for frequently accessed items"""
         from plot_renderer import render_item_plot
 
-        print(f"🔥 Warming up plot cache for {len(items_list)} items...")
+        logger.info(f"Warming up plot cache for {len(items_list)} items")
 
         # Load historical data once
         historical_data = self._load_historical_data()
@@ -210,10 +230,10 @@ class PlotCache:
                     plot_base64 = render_item_plot(item_name, forecast_data, quantity_data, "grid")
                     if plot_base64:
                         self.cache_plot(item_name, "grid", forecast_timestamp, historical_timestamp, plot_base64)
-                        print(f"✅ Cached grid plot for {item_name} ({i + 1}/{len(items_list)})")
+                        logger.info(f"Cached grid plot for {item_name} ({i + 1}/{len(items_list)})")
 
             except Exception as e:
-                print(f"❌ Error warming cache for {item_info.get('item_name', 'unknown')}: {e}")
+                logger.error(f"Error warming cache for {item_info.get('item_name', 'unknown')}: {e}")
 
     def _generate_plot_key(self, item_name: str, plot_type: str, forecast_ts: str, historical_ts: str) -> str:
         """Generate unique cache key for plot"""
@@ -254,7 +274,7 @@ class PlotCache:
                 json.dump(metadata, f, indent=2)
 
         except Exception as e:
-            print(f"⚠️ Warning: Could not save plot to file cache: {e}")
+            logger.warning(f"Could not save plot to file cache: {e}")
 
     def _load_plot_from_file(self, cache_key: str) -> Optional[str]:
         """Load plot from file cache"""
@@ -282,7 +302,7 @@ class PlotCache:
             return base64.b64encode(plot_data).decode("utf-8")
 
         except Exception as e:
-            print(f"⚠️ Warning: Could not load plot from file cache: {e}")
+            logger.warning(f"Could not load plot from file cache: {e}")
             return None
 
     def _load_historical_data(self) -> Dict[str, Any]:
@@ -345,7 +365,7 @@ class PlotCache:
             return quantity_data
 
         except Exception as e:
-            print(f"❌ Error loading historical data: {e}")
+            logger.error(f"Error loading historical data: {e}")
             return {}
 
     def _get_historical_timestamp(self) -> str:
@@ -375,8 +395,8 @@ def get_plot_cache() -> PlotCache:
 
 if __name__ == "__main__":
     # Test plot cache
-    print("Plot Cache Test")
-    print("=" * 40)
+    logger.info("Plot Cache Test")
+    logger.info("=" * 40)
 
     cache = PlotCache()
 
@@ -387,7 +407,7 @@ if __name__ == "__main__":
     cache.cache_plot("Test Item", "grid", "2025-01-01T00:00:00", "2025-01-01T00:00:00", test_plot)
 
     cached = cache.get_cached_plot("Test Item", "grid", "2025-01-01T00:00:00", "2025-01-01T00:00:00")
-    print(f"Cache test successful: {cached == test_plot}")
+    logger.info(f"Cache test successful: {cached == test_plot}")
 
     stats = cache.get_cache_stats()
-    print(f"Cache stats: {stats}")
+    logger.info(f"Cache stats: {stats}")

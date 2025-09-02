@@ -9,7 +9,9 @@ Uses BytesIO + base64 encoding for direct HTML embedding without file I/O.
 
 import base64
 import re
+import sys
 from io import BytesIO
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import matplotlib
@@ -20,6 +22,12 @@ import seaborn as sns
 
 # Set backend for Flask compatibility
 matplotlib.use("Agg")
+
+# Set up logging using centralized config
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.logging_config import setup_rotating_logger
+
+logger = setup_rotating_logger("PlotRenderer", "plot_renderer.log", console=False)
 
 # Set up matplotlib/seaborn styling
 plt.style.use("default")
@@ -80,7 +88,7 @@ class PlotRenderer:
                 forecast_df = pd.DataFrame(forecast_df["data"])
                 forecast_df["ds"] = pd.to_datetime(forecast_df["ds"])
             elif not isinstance(forecast_df, pd.DataFrame):
-                print(f"❌ Unexpected forecast_df format: {type(forecast_df)}")
+                logger.error(f"Unexpected forecast_df format: {type(forecast_df)}")
                 return None
 
             for i, weekday in enumerate(weekdays):
@@ -172,7 +180,7 @@ class PlotRenderer:
             return img_base64
 
         except Exception as e:
-            print(f"❌ Error rendering plot for {item_name}: {e}")
+            logger.error(f"Error rendering plot for {item_name}: {e}")
             plt.close("all")  # Clean up any open figures
             return None
 
@@ -246,7 +254,7 @@ class PlotRenderer:
             return img_base64
 
         except Exception as e:
-            print(f"❌ Error rendering simple plot for {item_name}: {e}")
+            logger.error(f"Error rendering simple plot for {item_name}: {e}")
             plt.close("all")
             return None
 
@@ -288,7 +296,7 @@ class PlotRenderer:
                             # Try direct parsing
                             last_date = pd.to_datetime(last_date_str)
                     except Exception as parse_error:
-                        print(f"⚠️ Warning: Could not parse date '{last_date_str}': {parse_error}")
+                        logger.warning(f"Could not parse date '{last_date_str}': {parse_error}")
                         # Use a reasonable fallback - end of August 2025
                         last_date = pd.Timestamp("2025-08-30")
 
@@ -301,7 +309,7 @@ class PlotRenderer:
             if "ds" in forecast_df.columns:
                 forecast_df["ds"] = pd.to_datetime(forecast_df["ds"])
             else:
-                print("❌ No 'ds' column found in forecast data")
+                logger.error("No 'ds' column found in forecast data")
                 return [], [], [], [], []
 
             # Filter forecast for this weekday and future dates
@@ -333,7 +341,7 @@ class PlotRenderer:
             )
 
         except Exception as e:
-            print(f"❌ Error extracting weekday forecast for {weekday}: {e}")
+            logger.error(f"Error extracting weekday forecast for {weekday}: {e}")
             return [], [], [], [], []
 
     def _add_statistics_text(self, ax, quantities: list, forecast_y: list):
@@ -361,7 +369,7 @@ class PlotRenderer:
                 bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
             )
         except Exception as e:
-            print(f"⚠️  Warning: Could not add statistics text: {e}")
+            logger.warning(f"Could not add statistics text: {e}")
 
 
 # Global instance
@@ -423,7 +431,7 @@ def render_item_plot(
             renderer = get_plot_renderer()
             return renderer.render_grid_plot(item_name, forecast_data, quantity_data)
         except Exception as e:
-            print(f"⚠️ Warning: Cache error for {item_name}, falling back to direct render: {e}")
+            logger.warning(f"Cache error for {item_name}, falling back to direct render: {e}")
             renderer = get_plot_renderer()
             return renderer.render_grid_plot(item_name, forecast_data, quantity_data)
 
@@ -432,14 +440,14 @@ def render_item_plot(
         renderer = get_plot_renderer()
         return renderer.render_simple_plot(item_name, forecast_data)
     else:
-        print(f"❌ Unknown plot type: {plot_type}")
+        logger.error(f"Unknown plot type: {plot_type}")
         return None
 
 
 if __name__ == "__main__":
     # Test plot renderer
-    print("Plot Renderer Test")
-    print("=" * 40)
+    logger.info("Plot Renderer Test")
+    logger.info("=" * 40)
 
     # Create test data
     test_forecast_data = {
@@ -464,6 +472,6 @@ if __name__ == "__main__":
     renderer = PlotRenderer()
     result = renderer.render_simple_plot("Test Item", test_forecast_data)
 
-    print(f"Test render successful: {result is not None}")
+    logger.info(f"Test render successful: {result is not None}")
     if result:
-        print(f"Base64 length: {len(result)} characters")
+        logger.info(f"Base64 length: {len(result)} characters")

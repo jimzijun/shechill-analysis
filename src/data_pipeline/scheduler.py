@@ -16,7 +16,6 @@ Usage:
 """
 
 import argparse
-import logging
 import os
 import sys
 from datetime import datetime
@@ -26,6 +25,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from src.data_pipeline.data_update_manager import DataUpdateManager
+from src.logging_config import setup_daily_logger
 
 
 class AutomationScheduler:
@@ -51,17 +51,7 @@ class AutomationScheduler:
 
     def setup_logging(self):
         """Setup logging for scheduler operations"""
-        log_dir = Path("logs")
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        log_file = log_dir / f"scheduler_{datetime.now().strftime('%Y%m%d')}.log"
-
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.FileHandler(log_file), logging.StreamHandler()],
-        )
-        self.logger = logging.getLogger("AutomationScheduler")
+        self.logger = setup_daily_logger("AutomationScheduler", "scheduler")
 
     def daily_full_pipeline(self):
         """Run complete daily pipeline: fetch, process, and generate forecasts"""

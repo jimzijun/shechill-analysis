@@ -14,7 +14,6 @@ This manager coordinates all components of the live forecasting pipeline.
 """
 
 import json
-import logging
 import os
 import sys
 import traceback
@@ -25,6 +24,7 @@ from typing import Any, Dict, Optional
 from src.analysis import forecast_generator
 from src.analysis.quantity_analysis import QuantityAnalyzer
 from src.config_manager import get_config
+from src.logging_config import setup_daily_logger
 
 # Import our components using proper src paths
 from src.square_client.square_api_client import SquareAPIClient
@@ -111,17 +111,7 @@ class DataUpdateManager:
 
     def _setup_logging(self):
         """Setup logging configuration"""
-        log_dir = Path("logs")
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        log_file = log_dir / f"update_manager_{datetime.now().strftime('%Y%m%d')}.log"
-
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.FileHandler(log_file), logging.StreamHandler()],
-        )
-        self.logger = logging.getLogger("DataUpdateManager")
+        self.logger = setup_daily_logger("DataUpdateManager", "update_manager")
 
     def get_update_status(self) -> Dict[str, Any]:
         """Get the current update status"""
