@@ -820,16 +820,19 @@ def main():
 
     args = parser.parse_args()
 
+    # Setup CLI logging
+    cli_logger = setup_daily_logger("DataUpdateManager-CLI", "data_update_manager_cli")
+
     # Check for access token
     access_token = os.environ.get("SQUARE_ACCESS_TOKEN")
     if not access_token:
-        print("❌ SQUARE_ACCESS_TOKEN not found in environment variables")
-        print("   Set it with: export SQUARE_ACCESS_TOKEN='your_token_here'")
+        cli_logger.error("❌ SQUARE_ACCESS_TOKEN not found in environment variables")
+        cli_logger.info("   Set it with: export SQUARE_ACCESS_TOKEN='your_token_here'")
         sys.exit(1)
 
-    print("=" * 70)
-    print("DATA UPDATE MANAGER - LIVE FORECASTING PIPELINE")
-    print("=" * 70)
+    cli_logger.info("=" * 70)
+    cli_logger.info("DATA UPDATE MANAGER - LIVE FORECASTING PIPELINE")
+    cli_logger.info("=" * 70)
 
     try:
         # Initialize manager
@@ -840,21 +843,21 @@ def main():
             status = manager.get_update_status()
             init_status = manager.get_initialization_status()
 
-            print(f"App Status: {status.get('status', 'unknown')}")
-            print(f"Initialized: {init_status['is_initialized']}")
-            print(f"Last Update: {status.get('last_update_time', 'never')}")
+            cli_logger.info(f"App Status: {status.get('status', 'unknown')}")
+            cli_logger.info(f"Initialized: {init_status['is_initialized']}")
+            cli_logger.info(f"Last Update: {status.get('last_update_time', 'never')}")
 
             if init_status["estimated_data_range"]:
                 data_range = init_status["estimated_data_range"]
-                print(f"Data Range: {data_range['start']} to {data_range['end']} ({data_range['days']} days)")
+                cli_logger.info(f"Data Range: {data_range['start']} to {data_range['end']} ({data_range['days']} days)")
 
             if status.get("last_error"):
-                print(f"Last Error: {status['last_error']}")
+                cli_logger.error(f"Last Error: {status['last_error']}")
 
             stats = status.get("statistics", {})
-            print(f"Total Items: {stats.get('total_items', 0)}")
-            print(f"Total Transactions: {stats.get('total_transactions', 0)}")
-            print(f"Data Coverage: {stats.get('data_coverage_days', 0)} days")
+            cli_logger.info(f"Total Items: {stats.get('total_items', 0)}")
+            cli_logger.info(f"Total Transactions: {stats.get('total_transactions', 0)}")
+            cli_logger.info(f"Data Coverage: {stats.get('data_coverage_days', 0)} days")
 
             # Exit with appropriate code based on status
             app_status = status.get("status", "unknown")
@@ -877,60 +880,64 @@ def main():
         elif args.init:
             # Initialize the app
             if manager.is_app_initialized():
-                print("⚠️  App appears to already be initialized!")
+                cli_logger.warning("⚠️  App appears to already be initialized!")
                 init_status = manager.get_initialization_status()
                 if init_status["estimated_data_range"]:
                     data_range = init_status["estimated_data_range"]
-                    print(f"   Existing data: {data_range['start']} to {data_range['end']} ({data_range['days']} days)")
+                    cli_logger.info(
+                        f"   Existing data: {data_range['start']} to {data_range['end']} " f"({data_range['days']} days)"
+                    )
 
                 response = input("\nContinue with initialization anyway? This will fetch all historical data. (y/N): ")
                 if response.lower() != "y":
-                    print("Initialization cancelled.")
+                    cli_logger.info("Initialization cancelled.")
                     sys.exit(0)
 
             result = manager.run_initialization()
 
-            print("\n" + "=" * 70)
+            cli_logger.info("\n" + "=" * 70)
             if result["status"] == "success":
-                print("✅ INITIALIZATION SUCCESS!")
-                print(f"⏱️  Duration: {result['duration_seconds']:.1f} seconds")
-                print(f"📦 Orders fetched: {result.get('orders_fetched', 0)}")
+                cli_logger.info("✅ INITIALIZATION SUCCESS!")
+                cli_logger.info(f"⏱️  Duration: {result['duration_seconds']:.1f} seconds")
+                cli_logger.info(f"📦 Orders fetched: {result.get('orders_fetched', 0)}")
                 if result.get("data_range"):
                     data_range = result["data_range"]
-                    print(f"📅 Data range: {data_range['start']} to {data_range['end']} ({data_range['days']} days)")
+                    cli_logger.info(
+                        f"📅 Data range: {data_range['start']} to {data_range['end']} " f"({data_range['days']} days)"
+                    )
             elif result["status"] == "already_initialized":
-                print("⚠️  ALREADY INITIALIZED")
-                print(result["message"])
+                cli_logger.warning("⚠️  ALREADY INITIALIZED")
+                cli_logger.info(result["message"])
             else:
-                print("❌ INITIALIZATION FAILED!")
-                print(f"Error: {result['error']}")
-                print(f"⏱️  Duration: {result['duration_seconds']:.1f} seconds")
-            print("=" * 70)
+                cli_logger.error("❌ INITIALIZATION FAILED!")
+                cli_logger.error(f"Error: {result['error']}")
+                cli_logger.info(f"⏱️  Duration: {result['duration_seconds']:.1f} seconds")
+            cli_logger.info("=" * 70)
 
         else:
             # Run the full pipeline
             result = manager.run_full_update_pipeline(args.days, args.full)
 
-            print("\n" + "=" * 70)
+            cli_logger.info("\n" + "=" * 70)
             if result["status"] == "success":
-                print("✅ PIPELINE SUCCESS!")
-                print(f"⏱️  Duration: {result['duration_seconds']:.1f} seconds")
+                cli_logger.info("✅ PIPELINE SUCCESS!")
+                cli_logger.info(f"⏱️  Duration: {result['duration_seconds']:.1f} seconds")
 
                 # Show stage results
                 stages = result.get("stages", {})
                 for stage_name, stage_result in stages.items():
                     status_icon = "✅" if stage_result["status"] == "success" else "❌"
-                    print(f"{status_icon} {stage_name}: {stage_result['status']}")
+                    cli_logger.info(f"{status_icon} {stage_name}: {stage_result['status']}")
 
             else:
-                print("❌ PIPELINE FAILED!")
-                print(f"Error: {result['error']}")
-                print(f"⏱️  Duration: {result['duration_seconds']:.1f} seconds")
+                cli_logger.error("❌ PIPELINE FAILED!")
+                cli_logger.error(f"Error: {result['error']}")
+                cli_logger.info(f"⏱️  Duration: {result['duration_seconds']:.1f} seconds")
 
-            print("=" * 70)
+            cli_logger.info("=" * 70)
 
     except Exception as e:
-        print(f"❌ Fatal error: {e}")
+        cli_logger.error(f"❌ Fatal error: {e}")
         sys.exit(1)
 
 

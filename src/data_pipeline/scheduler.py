@@ -18,7 +18,6 @@ Usage:
 import argparse
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -162,6 +161,9 @@ def main():
 
     args = parser.parse_args()
 
+    # Setup logging for CLI
+    cli_logger = setup_daily_logger("Scheduler-CLI", "scheduler_cli")
+
     try:
         scheduler = AutomationScheduler(args.data_dir)
 
@@ -170,16 +172,16 @@ def main():
         elif args.daemon:
             scheduler.run_daemon()
         else:
-            print("Usage:")
-            print("  python scheduler.py --mode [daily|weekly]  # Test single operation")
-            print("  python scheduler.py --daemon               # Run background daemon")
-            print("")
-            print("Schedules:")
-            print("  Daily:  10 PM - Full pipeline (fetch, process, forecast)")
-            print("  Weekly: Monday 6 AM - Full data integrity sync")
+            cli_logger.info("Usage:")
+            cli_logger.info("  python scheduler.py --mode [daily|weekly]  # Test single operation")
+            cli_logger.info("  python scheduler.py --daemon               # Run background daemon")
+            cli_logger.info("")
+            cli_logger.info("Schedules:")
+            cli_logger.info("  Daily:  10 PM - Full pipeline (fetch, process, forecast)")
+            cli_logger.info("  Weekly: Monday 6 AM - Full data integrity sync")
 
     except Exception as e:
-        print(f"❌ Scheduler failed to start: {e}")
+        cli_logger.error(f"❌ Scheduler failed to start: {e}")
         sys.exit(1)
 
 

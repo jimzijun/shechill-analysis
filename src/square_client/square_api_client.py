@@ -30,6 +30,7 @@ try:
     from square.environment import SquareEnvironment
 except ImportError:
     from src.logging_config import setup_console_logger
+
     logger = setup_console_logger("SquareAPIClient")
     logger.error("❌ Square SDK not installed. Install with: pip install squareup")
     sys.exit(1)
@@ -414,8 +415,9 @@ def main():
 
     # Setup logging for CLI
     from src.logging_config import setup_console_logger
+
     cli_logger = setup_console_logger("SquareAPIClient-CLI")
-    
+
     # Check for access token
     access_token = os.environ.get("SQUARE_ACCESS_TOKEN")
     if not access_token:

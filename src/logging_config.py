@@ -84,7 +84,7 @@ def setup_logger(
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
-    
+
     # Console only mode - exit early, no file handlers needed
     if console_only:
         return logger
