@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 # Add project root to Python path (must be done before importing custom modules)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.logging_config import clear_correlation_context, generate_request_id, get_logger, set_correlation_context
+from src.logging_config import clear_correlation_context, generate_request_id, get_logger, set_correlation_context  # noqa: E402
 
 # Initialize logger for web app
 logger = get_logger(__name__, "WebApp")

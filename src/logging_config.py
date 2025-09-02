@@ -23,11 +23,14 @@ import logging.config
 import os
 import sys
 import uuid
+from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
-# Global correlation ID storage for request tracing
-_correlation_context: Dict[str, Any] = {}
+# Context variables for thread-safe correlation tracking
+_correlation_id: ContextVar[Optional[str]] = ContextVar('correlation_id', default=None)
+_request_id: ContextVar[Optional[str]] = ContextVar('request_id', default=None)
+_user_session: ContextVar[Optional[str]] = ContextVar('user_session', default=None)
 
 
 class CorrelationFilter(logging.Filter):
@@ -35,9 +38,9 @@ class CorrelationFilter(logging.Filter):
 
     def filter(self, record):
         # Add correlation ID if available
-        record.correlation_id = _correlation_context.get("correlation_id", "")
-        record.request_id = _correlation_context.get("request_id", "")
-        record.user_session = _correlation_context.get("user_session", "")
+        record.correlation_id = _correlation_id.get() or ""
+        record.request_id = _request_id.get() or ""
+        record.user_session = _user_session.get() or ""
 
         # Add process info
         record.component = getattr(record, "component", record.name)
@@ -170,7 +173,7 @@ def setup_logging():
     logger.info("Logging configured", extra={"log_level": os.getenv("LOG_LEVEL", "INFO")})
 
 
-def get_logger(name: str, component: Optional[str] = None) -> logging.Logger:
+def get_logger(name: str, component: Optional[str] = None) -> Union[logging.Logger, logging.LoggerAdapter]:
     """
     Get a logger instance with optional component name
 
@@ -207,20 +210,19 @@ def set_correlation_context(
         request_id: Unique ID for this specific request
         user_session: User session identifier
     """
-    global _correlation_context
-
     if correlation_id:
-        _correlation_context["correlation_id"] = correlation_id
+        _correlation_id.set(correlation_id)
     if request_id:
-        _correlation_context["request_id"] = request_id
+        _request_id.set(request_id)
     if user_session:
-        _correlation_context["user_session"] = user_session
+        _user_session.set(user_session)
 
 
 def clear_correlation_context():
     """Clear correlation context"""
-    global _correlation_context
-    _correlation_context.clear()
+    _correlation_id.set(None)
+    _request_id.set(None)
+    _user_session.set(None)
 
 
 def generate_correlation_id() -> str:
@@ -237,7 +239,7 @@ def generate_request_id() -> str:
 class PerformanceLogger:
     """Context manager for logging operation performance"""
 
-    def __init__(self, logger: logging.Logger, operation: str, **extra_fields):
+    def __init__(self, logger: Union[logging.Logger, logging.LoggerAdapter], operation: str, **extra_fields):
         self.logger = logger
         self.operation = operation
         self.extra_fields = extra_fields
@@ -248,7 +250,7 @@ class PerformanceLogger:
         self.logger.info(f"Starting {self.operation}", extra=self.extra_fields)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, _exc_tb):
         duration = (datetime.now() - self.start_time).total_seconds()
 
         if exc_type:
