@@ -28,9 +28,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Union
 
 # Context variables for thread-safe correlation tracking
-_correlation_id: ContextVar[Optional[str]] = ContextVar('correlation_id', default=None)
-_request_id: ContextVar[Optional[str]] = ContextVar('request_id', default=None)
-_user_session: ContextVar[Optional[str]] = ContextVar('user_session', default=None)
+_correlation_id: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
+_request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
+_user_session: ContextVar[Optional[str]] = ContextVar("user_session", default=None)
 
 
 class CorrelationFilter(logging.Filter):
