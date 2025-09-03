@@ -144,6 +144,59 @@ class ForecastManager:
             self.logger.error(f"❌ Error deleting forecast for {item_name}: {e}")
             return False
 
+    def clear_all_forecasts(self) -> int:
+        """Clear all forecast files from the forecast directory
+
+        Returns:
+            int: Number of forecast files deleted
+        """
+        deleted_count = 0
+
+        try:
+            if not self.forecast_dir.exists():
+                self.logger.info("🔍 Forecast directory doesn't exist, nothing to clear")
+                return 0
+
+            # Find all forecast files
+            forecast_files = list(self.forecast_dir.glob("*_forecast.json"))
+
+            if not forecast_files:
+                self.logger.info("🔍 No forecast files found to clear")
+                return 0
+
+            # Delete each forecast file
+            for filepath in forecast_files:
+                try:
+                    filepath.unlink()
+                    deleted_count += 1
+                    self.logger.debug(f"🗑️  Deleted forecast file: {filepath.name}")
+                except Exception as e:
+                    self.logger.warning(f"⚠️  Failed to delete {filepath.name}: {e}")
+
+            self.logger.info(f"🧹 Cleared {deleted_count} forecast files")
+            return deleted_count
+
+        except Exception as e:
+            self.logger.error(f"❌ Error clearing all forecasts: {e}")
+            return deleted_count
+
+    def get_forecast_count(self) -> int:
+        """Get the current number of forecast files
+
+        Returns:
+            int: Number of forecast files in the directory
+        """
+        try:
+            if not self.forecast_dir.exists():
+                return 0
+
+            forecast_files = list(self.forecast_dir.glob("*_forecast.json"))
+            return len(forecast_files)
+
+        except Exception as e:
+            self.logger.error(f"❌ Error counting forecasts: {e}")
+            return 0
+
     def _sanitize_filename(self, item_name: str) -> str:
         """Convert item name to safe filename"""
         import re
