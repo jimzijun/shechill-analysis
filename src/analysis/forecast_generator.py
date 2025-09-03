@@ -37,13 +37,36 @@ def ensure_directories():
 def load_quantity_data():
     """Load and parse the quantity per day per item data"""
     print("Loading quantity data...")
-    df = pd.read_csv("data/quantity_per_day_per_item.csv")
 
-    print(f"Loaded data shape: {df.shape}")
-    print(f"Dates: {len(df)} unique dates")
-    print(f"Item columns: {df.shape[1] - 1} items (excluding Date)")
+    # Use Path for better path handling
+    from pathlib import Path
 
-    return df
+    csv_path = Path("data/quantity_per_day_per_item.csv")
+
+    if not csv_path.exists():
+        print(f"❌ Error: Quantity data file not found: {csv_path}")
+        return None
+
+    try:
+        df = pd.read_csv(csv_path)
+
+        if df.empty:
+            print("❌ Error: Quantity data file is empty")
+            return None
+
+        if "Date" not in df.columns:
+            print("❌ Error: Quantity data file missing 'Date' column")
+            return None
+
+        print(f"Loaded data shape: {df.shape}")
+        print(f"Dates: {len(df)} unique dates")
+        print(f"Item columns: {df.shape[1] - 1} items (excluding Date)")
+
+        return df
+
+    except Exception as e:
+        print(f"❌ Error loading quantity data: {e}")
+        return None
 
 
 def parse_date_rows(df):
@@ -159,9 +182,25 @@ def create_full_timeseries_forecast(df, item_name, forecast_days=28):
 
 def generate_forecasts(df, weekday_data):
     """Generate Prophet forecasts for all items and save as JSON data"""
+    # Safety check: Ensure we have valid data before clearing existing forecasts
+    if df is None or df.empty:
+        print("❌ Error: No valid quantity data provided, aborting forecast generation")
+        return 0
+
     # Get item columns (exclude Date)
     item_columns = [col for col in df.columns if col != "Date"]
+
+    if not item_columns:
+        print("❌ Error: No item columns found in data, aborting forecast generation")
+        return 0
+
     forecast_mgr = get_forecast_manager()
+
+    # Clear all existing forecasts to ensure atomic operation
+    print("\n🧹 Clearing existing forecasts for atomic generation...")
+    initial_count = forecast_mgr.get_forecast_count()
+    cleared_count = forecast_mgr.clear_all_forecasts()
+    print(f"   Removed {cleared_count} existing forecast files (was {initial_count} total)")
 
     print(f"\nGenerating unified forecasts for {len(item_columns)} items...")
 
@@ -255,6 +294,12 @@ def main():
 
     # Load and parse data
     df = load_quantity_data()
+
+    if df is None:
+        print("\n❌ FORECAST GENERATION FAILED")
+        print("Cannot proceed without valid quantity data")
+        return 0
+
     _, weekday_data = parse_date_rows(df)
 
     # Generate forecasts
