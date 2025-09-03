@@ -496,7 +496,7 @@ def api_forecast_summaries():
                         elif future_avg < avg_daily_sales * 0.9:
                             trend_direction = "down"
 
-                        # Simple confidence based on prediction interval width
+                        # Improved confidence based on prediction interval width
                         if len(forecast_df) > 0:
                             sample_row = forecast_df.iloc[0]
                             yhat = float(sample_row.get("yhat", 1))
@@ -504,8 +504,13 @@ def api_forecast_summaries():
                             yhat_upper = float(sample_row.get("yhat_upper", 2))
 
                             if yhat > 0:
+                                # Calculate relative interval width
                                 interval_width = (yhat_upper - yhat_lower) / yhat
-                                confidence_score = max(0.1, min(0.9, 1 - (interval_width / 2)))
+                                
+                                # Use exponential decay for more intuitive confidence mapping
+                                # This gives better visual separation between different confidence levels
+                                import math
+                                confidence_score = max(0.1, min(0.9, math.exp(-interval_width * 0.8)))
 
                 summaries.append(
                     {
