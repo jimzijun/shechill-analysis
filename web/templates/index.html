@@ -5,6 +5,11 @@
 {% block header_stats %}
 <div>{{ total_items }} Items</div>
 <div>Prophet Forecasting</div>
+<div class="view-toggle">
+    <button class="view-btn active" data-view="table">Table View</button>
+    <button class="view-btn" data-view="grid">Grid View</button>
+    <button class="view-btn" data-view="list">List View</button>
+</div>
 {% endblock %}
 
 {% block extra_css %}
@@ -92,37 +97,6 @@
         flex-wrap: wrap;
     }
     
-    .view-toggle {
-        display: flex;
-        background: white;
-        border-radius: 4px;
-        border: 1px solid #ddd;
-        overflow: hidden;
-    }
-    
-    .view-btn {
-        padding: 8px 16px;
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #6c757d;
-        transition: all 0.2s;
-    }
-    
-    .view-btn.active {
-        background-color: #007bff;
-        color: white;
-    }
-    
-    .view-btn:hover {
-        background-color: #e7f3ff;
-        color: #007bff;
-    }
-    
-    .view-btn.active:hover {
-        background-color: #0056b3;
-        color: white;
-    }
     
     /* Forecast summary styling */
     .forecast-summary {
@@ -186,7 +160,6 @@
     
     .confidence-fill {
         height: 100%;
-        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
         border-radius: 2px;
         transition: width 0.3s ease;
     }
@@ -195,6 +168,165 @@
         text-align: center;
         color: #6c757d;
         font-size: 14px;
+    }
+    
+    /* Table view styles */
+    .table-container {
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        overflow-x: auto;
+        margin-top: 15px;
+    }
+    
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 800px;
+        table-layout: auto;
+    }
+    
+    .items-table th {
+        background-color: #f8f9fa;
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        color: #2c3e50;
+        border-bottom: 2px solid #dee2e6;
+        white-space: nowrap;
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+    }
+    
+    .items-table th.sortable:hover {
+        background-color: #e9ecef;
+    }
+    
+    .items-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #dee2e6;
+        color: #495057;
+        vertical-align: middle;
+    }
+    
+    .items-table tbody tr {
+        transition: background-color 0.2s;
+        cursor: pointer;
+    }
+    
+    .items-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .items-table tbody tr:nth-child(even) {
+        background-color: #fdfdfd;
+    }
+    
+    .items-table tbody tr:nth-child(even):hover {
+        background-color: #f1f3f4;
+    }
+    
+    .sort-indicator {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 12px;
+        color: #6c757d;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    
+    .sortable:hover .sort-indicator {
+        opacity: 1;
+    }
+    
+    .sortable.sorted .sort-indicator {
+        opacity: 1;
+        color: #007bff;
+    }
+    
+    .item-name-cell {
+        font-weight: 600;
+        color: #2c3e50;
+        min-width: 200px;
+        max-width: 400px;
+        word-wrap: break-word;
+        white-space: normal;
+        line-height: 1.4;
+    }
+    
+    .trend-cell {
+        text-align: center;
+        font-size: 18px;
+    }
+    
+    .confidence-cell {
+        position: relative;
+        min-width: 120px;
+    }
+    
+    .confidence-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .confidence-bar-small {
+        flex: 1;
+        height: 6px;
+        background-color: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .confidence-fill-small {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    
+    .confidence-text {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6c757d;
+        min-width: 30px;
+    }
+    
+    .date-cell {
+        font-size: 12px;
+        color: #6c757d;
+        white-space: nowrap;
+    }
+    
+    .numeric-cell {
+        font-weight: 600;
+        color: #2c3e50;
+        text-align: right;
+    }
+    
+    /* Responsive table */
+    @media (max-width: 768px) {
+        .table-container {
+            border-radius: 0;
+            margin: 15px -15px 0 -15px;
+        }
+        
+        .items-table {
+            min-width: 600px;
+            font-size: 14px;
+        }
+        
+        .items-table th,
+        .items-table td {
+            padding: 8px 12px;
+        }
+        
+        .item-name-cell {
+            min-width: 150px;
+            max-width: 250px;
+        }
     }
 </style>
 {% endblock %}
@@ -206,16 +338,11 @@
 
 <div class="controls">
     <input type="text" id="searchBox" class="search-box" placeholder="Search items (e.g. 'croissant', 'latte', 'tart')...">
-    
-    <div class="view-toggle">
-        <button class="view-btn active" data-view="grid">Grid View</button>
-        <button class="view-btn" data-view="list">List View</button>
-    </div>
 </div>
 
 <div id="plotsContainer">
     {% if items %}
-    <div class="plots-grid" id="plotsGrid">
+    <div class="plots-grid" id="plotsGrid" style="display: none;">
         {% for item in items %}
         <div class="plot-card" onclick="viewItem('{{ item.slug }}')" data-item="{{ item.item_name.lower() }}" data-slug="{{ item.slug }}">
             <div class="forecast-summary">
@@ -231,6 +358,48 @@
         </div>
         {% endfor %}
     </div>
+    
+    <!-- Table view -->
+    <div class="table-container" id="tableContainer">
+        <table class="items-table" id="itemsTable">
+            <thead>
+                <tr>
+                    <th class="sortable" data-sort="name">
+                        Item Name
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-sort="avg">
+                        Avg Daily Sales
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-sort="forecast">
+                        Next Week Total
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-sort="trend">
+                        Trend
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-sort="confidence">
+                        Confidence
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" data-sort="date">
+                        Last Updated
+                        <span class="sort-indicator"></span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr>
+                    <td colspan="6" class="loading" style="text-align: center; padding: 40px;">
+                        🔄 Loading forecast data...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
     {% else %}
     <div class="no-results">
         <h3>No forecast data available</h3>
@@ -249,15 +418,24 @@
 <script>
     let allItems = {{ items|tojson }};
     
+    // Generate confidence gradient with mask
+    function getConfidenceGradient(percentage) {
+        const maskPercent = percentage * 100;
+        return `background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%); -webkit-mask: linear-gradient(90deg, black 0%, black ${maskPercent}%, transparent ${maskPercent}%); mask: linear-gradient(90deg, black 0%, black ${maskPercent}%, transparent ${maskPercent}%)`;
+    }
+    
     // Search functionality
     document.getElementById('searchBox').addEventListener('input', function(e) {
         const searchTerm = e.target.value.toLowerCase();
         const plotsGrid = document.getElementById('plotsGrid');
+        const tableContainer = document.getElementById('tableContainer');
         const noResults = document.getElementById('noResults');
         const cards = document.querySelectorAll('.plot-card');
+        const tableRows = document.querySelectorAll('#tableBody tr');
         
         let visibleCount = 0;
         
+        // Search in grid/list view cards
         cards.forEach(card => {
             const itemName = card.getAttribute('data-item');
             if (itemName.includes(searchTerm)) {
@@ -268,11 +446,40 @@
             }
         });
         
+        // Search in table view rows
+        tableRows.forEach(row => {
+            const itemName = row.getAttribute('data-item');
+            if (itemName && itemName.includes(searchTerm)) {
+                row.style.display = '';
+                if (tableContainer.style.display !== 'none') {
+                    visibleCount++;
+                }
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        // Show/hide no results message
         if (visibleCount === 0) {
-            plotsGrid.style.display = 'none';
+            if (plotsGrid.style.display !== 'none') {
+                plotsGrid.style.display = 'none';
+            }
+            if (tableContainer.style.display !== 'none') {
+                tableContainer.style.display = 'none';
+            }
             noResults.style.display = 'block';
         } else {
-            plotsGrid.style.display = 'grid';
+            // Restore the appropriate view
+            const activeViewBtn = document.querySelector('.view-btn.active');
+            const activeView = activeViewBtn ? activeViewBtn.getAttribute('data-view') : 'grid';
+            
+            if (activeView === 'table') {
+                tableContainer.style.display = 'block';
+                plotsGrid.style.display = 'none';
+            } else {
+                plotsGrid.style.display = 'grid';
+                tableContainer.style.display = 'none';
+            }
             noResults.style.display = 'none';
         }
     });
@@ -285,20 +492,195 @@
             
             const view = this.getAttribute('data-view');
             const plotsGrid = document.getElementById('plotsGrid');
+            const tableContainer = document.getElementById('tableContainer');
             
-            if (view === 'list') {
-                plotsGrid.style.gridTemplateColumns = '1fr';
+            if (view === 'table') {
+                // Show table view
+                plotsGrid.style.display = 'none';
+                tableContainer.style.display = 'block';
+                // Populate table data if not already done
+                if (document.getElementById('tableBody').children.length === 0) {
+                    populateTableView();
+                }
             } else {
-                plotsGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(320px, 1fr))';
+                // Show grid view
+                plotsGrid.style.display = 'grid';
+                tableContainer.style.display = 'none';
+                
+                if (view === 'list') {
+                    plotsGrid.style.gridTemplateColumns = '1fr';
+                } else {
+                    plotsGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(320px, 1fr))';
+                }
             }
         });
     });
     
+    // Table sorting functionality
+    let currentSort = { column: null, direction: 'asc' };
+    
+    function setupTableSorting() {
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.getAttribute('data-sort');
+                const indicator = this.querySelector('.sort-indicator');
+                
+                // Reset other headers
+                document.querySelectorAll('.sortable').forEach(h => {
+                    if (h !== this) {
+                        h.classList.remove('sorted');
+                        h.querySelector('.sort-indicator').textContent = '';
+                    }
+                });
+                
+                // Determine sort direction
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.direction = 'asc';
+                }
+                currentSort.column = column;
+                
+                // Update visual indicator
+                this.classList.add('sorted');
+                indicator.textContent = currentSort.direction === 'asc' ? '▲' : '▼';
+                
+                // Sort the table
+                sortTable(column, currentSort.direction);
+            });
+        });
+    }
+    
+    function sortTable(column, direction) {
+        const tableBody = document.getElementById('tableBody');
+        const rows = Array.from(tableBody.querySelectorAll('tr'));
+        
+        rows.sort((a, b) => {
+            let aValue, bValue;
+            
+            switch (column) {
+                case 'name':
+                    aValue = a.querySelector('.item-name-cell').textContent.toLowerCase();
+                    bValue = b.querySelector('.item-name-cell').textContent.toLowerCase();
+                    break;
+                case 'avg':
+                case 'forecast':
+                    const aNumeric = parseFloat(a.querySelectorAll('.numeric-cell')[column === 'avg' ? 0 : 1].textContent);
+                    const bNumeric = parseFloat(b.querySelectorAll('.numeric-cell')[column === 'avg' ? 0 : 1].textContent);
+                    aValue = isNaN(aNumeric) ? 0 : aNumeric;
+                    bValue = isNaN(bNumeric) ? 0 : bNumeric;
+                    break;
+                case 'trend':
+                    // Sort by trend direction: up, stable, down
+                    const trendOrder = { 'up': 3, 'stable': 2, 'down': 1 };
+                    const aTrend = a.querySelector('.trend-cell').className.includes('trend-up') ? 'up' :
+                                  a.querySelector('.trend-cell').className.includes('trend-down') ? 'down' : 'stable';
+                    const bTrend = b.querySelector('.trend-cell').className.includes('trend-up') ? 'up' :
+                                  b.querySelector('.trend-cell').className.includes('trend-down') ? 'down' : 'stable';
+                    aValue = trendOrder[aTrend];
+                    bValue = trendOrder[bTrend];
+                    break;
+                case 'confidence':
+                    const aConf = parseFloat(a.querySelector('.confidence-text').textContent);
+                    const bConf = parseFloat(b.querySelector('.confidence-text').textContent);
+                    aValue = isNaN(aConf) ? 0 : aConf;
+                    bValue = isNaN(bConf) ? 0 : bConf;
+                    break;
+                case 'date':
+                    aValue = new Date(a.querySelector('.date-cell').textContent);
+                    bValue = new Date(b.querySelector('.date-cell').textContent);
+                    break;
+                default:
+                    return 0;
+            }
+            
+            if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        
+        // Clear and re-append sorted rows
+        tableBody.innerHTML = '';
+        rows.forEach(row => tableBody.appendChild(row));
+    }
+
     // Item viewing
     function viewItem(itemSlug) {
         window.location.href = `{{ url_for('item_detail', item_slug='') }}${itemSlug}`;
     }
     
+    // Populate table view with forecast data
+    function populateTableView() {
+        fetch('/api/forecast-summaries')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                const tableBody = document.getElementById('tableBody');
+                tableBody.innerHTML = '';
+                
+                data.summaries.forEach(summary => {
+                    const row = document.createElement('tr');
+                    row.setAttribute('data-slug', summary.slug);
+                    row.setAttribute('data-item', summary.item_name.toLowerCase());
+                    row.onclick = () => viewItem(summary.slug);
+                    
+                    // Get trend icon and class
+                    let trendIcon = '➡️';
+                    let trendClass = 'trend-stable';
+                    if (summary.trend_direction === 'up') {
+                        trendIcon = '📈';
+                        trendClass = 'trend-up';
+                    } else if (summary.trend_direction === 'down') {
+                        trendIcon = '📉';
+                        trendClass = 'trend-down';
+                    }
+                    
+                    // Format date
+                    const generatedDate = summary.generated_at ? summary.generated_at.split('T')[0] : 'Unknown';
+                    
+                    row.innerHTML = `
+                        <td class="item-name-cell">${summary.item_name}</td>
+                        <td class="numeric-cell">${summary.avg_daily_sales}</td>
+                        <td class="numeric-cell">${summary.next_week_forecast}</td>
+                        <td class="trend-cell ${trendClass}" title="Trend: ${summary.trend_direction}">${trendIcon}</td>
+                        <td class="confidence-cell">
+                            <div class="confidence-display">
+                                <div class="confidence-bar-small">
+                                    <div class="confidence-fill-small" style="${getConfidenceGradient(summary.confidence_score)}"></div>
+                                </div>
+                                <span class="confidence-text">${Math.round(summary.confidence_score * 100)}%</span>
+                            </div>
+                        </td>
+                        <td class="date-cell">${generatedDate}</td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                });
+                
+                // Setup sorting after populating data
+                setupTableSorting();
+            })
+            .catch(error => {
+                console.error('Error populating table view:', error);
+                const tableBody = document.getElementById('tableBody');
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 40px; color: #dc3545;">
+                            ❌ Error loading forecast data: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            });
+    }
+
     // Load forecast summaries for cards
     function loadForecastSummaries() {
         fetch('/api/forecast-summaries')
@@ -346,7 +728,7 @@
                                         <span class="trend-indicator ${trendClass}">${trendIcon}</span>
                                     </div>
                                     <div class="confidence-bar">
-                                        <div class="confidence-fill" style="width: ${summary.confidence_score * 100}%"></div>
+                                        <div class="confidence-fill" style="${getConfidenceGradient(summary.confidence_score)}"></div>
                                     </div>
                                 </div>
                             `;
@@ -372,6 +754,8 @@
     // Load forecast data when page loads
     document.addEventListener('DOMContentLoaded', function() {
         loadForecastSummaries();
+        // Populate table view since it's the default
+        populateTableView();
     });
     
     // Keyboard shortcuts

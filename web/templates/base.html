@@ -56,6 +56,8 @@
             gap: 20px;
             color: #6c757d;
             font-size: 0.9em;
+            align-items: center;
+            flex-wrap: wrap;
         }
         
         .nav-link {
@@ -98,6 +100,40 @@
             background-color: #545b62;
         }
         
+        .view-toggle {
+            display: flex;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            overflow: hidden;
+        }
+        
+        .view-btn {
+            padding: 6px 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #6c757d;
+            transition: all 0.2s;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        
+        .view-btn.active {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .view-btn:hover {
+            background-color: #e7f3ff;
+            color: #007bff;
+        }
+        
+        .view-btn.active:hover {
+            background-color: #0056b3;
+            color: white;
+        }
+        
         .alert {
             padding: 12px 20px;
             margin-bottom: 20px;
@@ -125,7 +161,21 @@
             
             .stats {
                 flex-direction: column;
-                gap: 5px;
+                gap: 10px;
+                width: 100%;
+                align-items: flex-start;
+            }
+            
+            .view-toggle {
+                order: -1;
+                align-self: stretch;
+            }
+            
+            .view-btn {
+                flex: 1;
+                text-align: center;
+                padding: 8px 12px;
+                font-size: 14px;
             }
             
             .container {

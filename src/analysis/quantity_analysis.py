@@ -25,6 +25,144 @@ import pandas as pd
 class QuantityAnalyzer:
     """Enhanced quantity analysis with JSON data support"""
 
+    # Item name mappings (applied before filtering)
+    ITEM_MAPPINGS = {
+        "Avocado Egg Croissant Sandwich": [
+            "Avocado Egg Croissant Sandwich",
+            "Avocado Egg Croissant Sandwich (Fri/Sat/Sun)",
+            "Avocado Egg Croissant Sandwich - Weekend Only",
+        ],
+        "Berry Tart": ["Berry Tart", "Berry Tart "],
+        "Chocolate Tart": ["Chocolate Tart", "Chocolate Tart "],
+        "Crispy Egg Tart": ["Crispy Egg Tart", "Egg Tart"],
+        "Croque Monsieur": ["CroqueMonsieur", "Croque Monsieur"],
+        "Dubai Chocolate Croissant": [
+            "Dubai Chocolate Croissant",
+            "Dubaï Chocolate Croissant",
+            "Dubai Chocolate Croissant (Fri/Sat/Sun)",
+        ],
+        "Mini Black Sesame Croissant": [
+            "Mini Black Sesame Croissant",
+            "Mini Black SésameCroissant",
+            "Mini Black Sesame Croissant (Fri/Sat/Sun)",
+        ],
+        "Black Sesame Croissant": [
+            "Black Sesame Croissant",
+            "Black Sesame Croissant (Fri/Sat/Sun)",
+            "Black Sesame Croissant Toast - Weekend Only",
+        ],
+        "Brie Prosciutto Croissant Sandwich": [
+            "Brie Prosciutto Croissant Sandwich",
+            "Brie Prosciutto Croissant Sandwich (Fri/Sat/Sun)",
+            "Brie Prosciutto Croissant Sandwich - Weekend Only",
+        ],
+        "Red Bow Tie Croissant": [
+            "Red Bow Tie Croissant",
+            "Red Bow Tie Croissant (Fri/Sat/Sun)",
+            "Red Bow Tie Croissant - Weekend Only",
+        ],
+        "Lemon Tart": ["Lemon Tart", "Lemon Tart (Large)", "Lemon Tart (S)", "Lemon Tart (L)", "Lemon Tart (Small)"],
+        "Raspberry Tart": [
+            "Raspberry Tart",
+            "Raspberry Tart(S)",
+            "Raspberry Tart (S)",
+            "Raspberry Tart (L)",
+            "Raspberry Tart (Mini)",
+            "Raspberry Tart (Small)",
+            "Raspberry Tart Large",
+            "Raspberry Tart Small",
+        ],
+        "Ham & Cheese Croissant": [
+            "Ham & Cheese Croissant",
+            "Ham  Cheese Croissant",
+        ],
+        "Chocolate Hazelnut Mousse": [
+            "Chocolate Hazelnut Mousse",
+            "Chocolate Hazelnut Mousse (Fri/Sat/Sun)",
+            "Chocolate Hazelnut Mousse Cake",
+            "Chocolate Hazelnut Mousse Cake - Weekend Only",
+        ],
+        "Cinnamon Croffin": [
+            "Cinnamon Croffin",
+            "Cinnamon Sugar Croffin",
+        ],
+        "Mango Passionfruit Cake": [
+            "Mango Passionfruit Cake",
+            "Mango Passionfruit Pomelo Cake",
+        ],
+        "Salty Egg Yolk Bread": [
+            "Salty Egg Yolk Bread",
+            "Salty Egg Yolk Floss Bread",
+        ],
+        "Tiramisu": [
+            "Tiramisu",
+            "Tiramisu Classic",
+        ],
+        "Yuzu Lemon Basque Cake": [
+            "Yuzu Lemon Basque Cake",
+            "Yuzu Lemon Basque Cheesecake",
+        ],
+    }
+
+    # Items to include (core bakery products only)
+    INCLUDED_ITEM_PATTERNS = [
+        "Almond Chocolate Croissant",
+        "Almond Croissant",
+        "Avocado Egg Croissant Sandwich",
+        "Berry Tart",
+        "Black Sesame Croissant",
+        "Blackcurrant Honey Cake",
+        "Brie Prosciutto Croissant Sandwich",
+        "Caprese Sandwich",
+        "Caramel Drizzle Latte",
+        "Caramel Nuts Croissant",
+        "Chocolate Banana Bread (Gluten Free)",
+        "Chocolate Danish Pretzel",
+        "Chocolate Hazelnut Mousse",
+        "Chocolate Tart",
+        "Cinnamon Croffin",
+        "Classic Danish Pretzel",
+        "Crispy Egg Tart",
+        "Croque Monsieur",
+        "Dark Chocolate Brookie",
+        "Dubai Chocolate Croissant",
+        "Earl Grey White Peach Cream Cake",
+        "Garlic Cheese Bread",
+        "Green Forest Cake",
+        "Ham & Cheese Croissant",
+        "Hokkaido Soft Milky Toast",
+        "Kouign Amann",
+        "Lemon Tart",
+        "Lemon Thai Green Tea",
+        "Mango Passionfruit Cake",
+        "Mango Tiramisu",
+        "Matcha Creme Latte",
+        "Matcha Crispy Mini Toast",
+        "Mini Black Sesame Croissant",
+        "Nutella Croissant",
+        "Orange Gâteau Breton",
+        "Pain au Chocolate",
+        "Passion Orange Soda",
+        "Pecan Chocolate Cookie",
+        "Petite Fruit Croissant",
+        "Pistachio Croissant",
+        "Pistachio Rose Latte",
+        "Plain Croissant",
+        "Raspberry Tart",
+        "Red Bow Tie Croissant",
+        "Rose Lychee Cream Cake",
+        "Salted Cookie Cream Cake",
+        "Salty Egg Yolk Bread",
+        "Sausage Paw",
+        "Sichuan Chili Pepper Danish Pretzel",
+        "Strawberry Cheese Cake",
+        "Strawberry Cream Cake",
+        "Strawberry Delight",
+        "Tiramisu",
+        "Vanilla Latte",
+        "Yuzu Lemon Basque Cake",
+    ]
+
     def __init__(self, data_dir: str = "data"):
         """Initialize analyzer with data directory"""
         self.data_dir = Path(data_dir)
@@ -69,71 +207,92 @@ class QuantityAnalyzer:
                 items_processed = 0
 
                 for order in daily_orders:
-                    # Extract order metadata
-                    order_id = order.get("id", "")
-                    created_at = order.get("created_at", "")
-                    order_date = order.get("date", "")  # Already set by Square API client
-                    local_datetime = order.get("local_datetime", "")
-
-                    if not created_at or not order_date:
-                        continue
-
-                    # Parse the local datetime for day of week
                     try:
-                        if local_datetime:
-                            dt = pd.to_datetime(local_datetime)
-                        else:
-                            # Fallback to created_at
-                            dt = pd.to_datetime(created_at)
-                        day_of_week = dt.day_name()
-                    except Exception:
-                        day_of_week = "Unknown"
+                        # Extract order metadata
+                        order_id = order.get("id", "")
+                        created_at = order.get("created_at", "")
+                        order_date = order.get("date", "")  # Already set by Square API client
+                        local_datetime = order.get("local_datetime", "")
 
-                    # Process line items
-                    line_items = order.get("line_items", [])
-                    for item in line_items:
-                        if not item:
+                        if not created_at or not order_date:
                             continue
 
-                        # Extract item details
-                        item_name = item.get("name", "").strip()
-                        if not item_name:
-                            continue
-
+                        # Parse the local datetime for day of week
                         try:
-                            quantity = float(item.get("quantity", "0"))
-                        except (ValueError, TypeError):
-                            quantity = 0.0
+                            if local_datetime:
+                                dt = pd.to_datetime(local_datetime)
+                            else:
+                                # Fallback to created_at
+                                dt = pd.to_datetime(created_at)
+                            day_of_week = dt.day_name()
+                        except Exception:
+                            day_of_week = "Unknown"
 
-                        if quantity <= 0:
+                        # Process line items
+                        line_items = order.get("line_items", [])
+                        if line_items is None:
+                            print(f"   ⚠️  Order {order_id}: line_items is null, skipping")
                             continue
 
-                        # Get price (Square amounts are in cents)
-                        sales_price = 0.0
-                        base_price_money = item.get("base_price_money", {})
-                        if base_price_money:
+                        for item_idx, item in enumerate(line_items):
+                            if not item:
+                                continue
+
                             try:
-                                amount = base_price_money.get("amount", 0)
-                                sales_price = float(amount) / 100.0
-                            except (KeyError, ValueError, TypeError):
-                                pass
+                                # Extract item details
+                                item_name_raw = item.get("name")
+                                if item_name_raw is None:
+                                    print(f"   ⚠️  Order {order_id}, item {item_idx}: name is null, skipping")
+                                    continue
 
-                        # Create transaction record
-                        all_transactions.append(
-                            {
-                                "Item": item_name,
-                                "Qty": quantity,
-                                "Date": order_date,
-                                "Net Sales": sales_price,
-                                "Day_of_Week": day_of_week,
-                                "order_id": order_id,
-                                "created_at": created_at,
-                            }
-                        )
+                                item_name = item_name_raw.strip()
+                                if not item_name:
+                                    continue
 
-                        items_processed += 1
+                                try:
+                                    quantity = float(item.get("quantity", "0"))
+                                except (ValueError, TypeError):
+                                    quantity = 0.0
 
-                    orders_processed += 1
+                                if quantity <= 0:
+                                    continue
+
+                                # Get price (Square amounts are in cents)
+                                sales_price = 0.0
+                                base_price_money = item.get("base_price_money", {})
+                                if base_price_money:
+                                    try:
+                                        amount = base_price_money.get("amount", 0)
+                                        sales_price = float(amount) / 100.0
+                                    except (KeyError, ValueError, TypeError):
+                                        pass
+
+                                # Create transaction record
+                                all_transactions.append(
+                                    {
+                                        "Item": item_name,
+                                        "Qty": quantity,
+                                        "Date": order_date,
+                                        "Net Sales": sales_price,
+                                        "Day_of_Week": day_of_week,
+                                        "order_id": order_id,
+                                        "created_at": created_at,
+                                    }
+                                )
+
+                                items_processed += 1
+
+                            except Exception as item_e:
+                                item_uid = item.get("uid", "unknown") if item else "null_item"
+                                print(f"   ⚠️  Order {order_id}, item {item_idx} (uid: {item_uid}): {item_e}")
+                                continue
+
+                        orders_processed += 1
+
+                    except Exception as order_e:
+                        order_id = order.get("id", "unknown") if order else "null_order"
+                        print(f"   ⚠️  Order {order_id}: {order_e}")
+                        continue
 
                 total_orders += orders_processed
                 total_items += items_processed
@@ -141,6 +300,7 @@ class QuantityAnalyzer:
 
             except Exception as e:
                 print(f"⚠️  Error loading {json_file.name}: {e}")
+                print(f"   File path: {json_file}")
                 continue
 
         if not all_transactions:
@@ -169,60 +329,9 @@ class QuantityAnalyzer:
         """Clean and merge duplicate/similar item names"""
         print("\nCleaning item names...")
 
-        # Enhanced merge mappings for both CSV and JSON data
-        item_mappings = {
-            # Exact duplicates and trailing spaces
-            "Berry Tart": ["Berry Tart", "Berry Tart "],
-            "Chocolate Tart": ["Chocolate Tart", "Chocolate Tart "],
-            "Bread Pudding Croissant": ["Bread Pudding Croissant"],
-            "Chocolate Banana Bread (Gluten Free)": ["Chocolate Banana Bread (Gluten Free)"],
-            "Crispy Egg Tart": ["Crispy Egg Tart", "Egg Tart"],
-            # Spelling/character variations
-            "Dubai Chocolate Croissant": [
-                "Dubai Chocolate Croissant",
-                "Dubaï Chocolate Croissant",
-                "Dubai Chocolate Croissant (Fri/Sat/Sun)",
-            ],
-            "Mini Black Sesame Croissant": [
-                "Mini Black Sesame Croissant",
-                "Mini Black SésameCroissant",
-                "Mini Black Sesame Croissant (Fri/Sat/Sun)",
-            ],
-            "Croque Monsieur": ["CroqueMonsieur", "Croque Monsieur"],
-            # Weekend/special variations
-            "Avocado Egg Croissant Sandwich": [
-                "Avocado Egg Croissant Sandwich",
-                "Avocado Egg Croissant Sandwich (Fri/Sat/Sun)",
-                "Avocado Egg Croissant Sandwich - Weekend Only",
-            ],
-            "Black Sesame Croissant": [
-                "Black Sesame Croissant",
-                "Black Sesame Croissant (Fri/Sat/Sun)",
-                "Black Sesame Croissant Toast - Weekend Only",
-            ],
-            "Brie Prosciutto Croissant Sandwich": [
-                "Brie Prosciutto Croissant Sandwich",
-                "Brie Prosciutto Croissant Sandwich (Fri/Sat/Sun)",
-                "Brie Prosciutto Croissant Sandwich - Weekend Only",
-            ],
-            "Red Bow Tie Croissant": [
-                "Red Bow Tie Croissant",
-                "Red Bow Tie Croissant (Fri/Sat/Sun)",
-                "Red Bow Tie Croissant - Weekend Only",
-            ],
-            # Size/format variations
-            "Lemon Tart (Large)": ["Lemon Tart (L)", "Lemon Tart (Large)"],
-            "Raspberry Tart (Small)": ["Raspberry Tart (Small)", "Raspberry Tart(S)"],
-            # Ampersand variations (JSON vs CSV differences)
-            "Ham & Cheese Croissant": [
-                "Ham & Cheese Croissant",
-                "Ham  Cheese Croissant",
-            ],
-        }
-
         # Create reverse mapping for faster lookup
         reverse_mapping = {}
-        for target, sources in item_mappings.items():
+        for target, sources in self.ITEM_MAPPINGS.items():
             for source in sources:
                 reverse_mapping[source] = target
 
@@ -298,15 +407,30 @@ class QuantityAnalyzer:
         # Clean item names to merge duplicates
         df_filtered = self.clean_item_names(df_filtered)
 
-        # Remove seasonal/special items (4th of July, Easter specials)
-        print("Removing seasonal/special items...")
-        before_special_filter = len(df_filtered)
-        df_filtered = df_filtered[
-            ~df_filtered["Item"].str.contains("4th of July|4th Of July|Easter Special", case=False, na=False)
-        ]
-        after_special_filter = len(df_filtered)
-        removed_special = before_special_filter - after_special_filter
-        print(f"Removed {removed_special} transactions for seasonal/special items")
+        # Include only core bakery items using exact matching
+        print("Filtering to include only core bakery items...")
+        before_inclusion_filter = len(df_filtered)
+
+        # Get unique items before filtering to show what's being excluded
+        items_before = set(df_filtered["Item"].unique())
+
+        # Use exact string matching instead of substring matching
+        df_filtered = df_filtered[df_filtered["Item"].isin(self.INCLUDED_ITEM_PATTERNS)]
+        after_inclusion_filter = len(df_filtered)
+
+        # Get unique items after filtering and calculate excluded items
+        items_after = set(df_filtered["Item"].unique())
+        excluded_items = items_before - items_after
+
+        removed_non_bakery = before_inclusion_filter - after_inclusion_filter
+        print(f"Removed {removed_non_bakery} transactions for non-bakery items")
+
+        if excluded_items:
+            print(f"⚠️  WARNING: {len(excluded_items)} item types excluded from analysis:")
+            excluded_list = sorted(list(excluded_items))
+            for i, item in enumerate(excluded_list, 1):
+                print(f"   {i:2d}. {item}")
+            print("   These items are not in INCLUDED_ITEM_PATTERNS filter")
 
         # Group by Date and Item only
         daily_qty = df_filtered.groupby(["Date", "Item"]).agg({"Qty": "sum"}).reset_index()
@@ -334,7 +458,7 @@ class QuantityAnalyzer:
         print(f"Final pivot table shape: {qty_pivot.shape}")
         print("Table format: Dates as rows, Items as columns")
         print("Items ordered alphabetically")
-        print("Excluded: Seasonal/special items, Monday, problematic dates")
+        print("Excluded: Non-bakery items, Monday, problematic dates")
 
         return qty_pivot
 
