@@ -5,6 +5,11 @@
 {% block header_stats %}
 <div>{{ total_items }} Items</div>
 <div>Prophet Forecasting</div>
+<div class="view-toggle">
+    <button class="view-btn active" data-view="table">Table View</button>
+    <button class="view-btn" data-view="grid">Grid View</button>
+    <button class="view-btn" data-view="list">List View</button>
+</div>
 {% endblock %}
 
 {% block extra_css %}
@@ -92,37 +97,6 @@
         flex-wrap: wrap;
     }
     
-    .view-toggle {
-        display: flex;
-        background: white;
-        border-radius: 4px;
-        border: 1px solid #ddd;
-        overflow: hidden;
-    }
-    
-    .view-btn {
-        padding: 8px 16px;
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #6c757d;
-        transition: all 0.2s;
-    }
-    
-    .view-btn.active {
-        background-color: #007bff;
-        color: white;
-    }
-    
-    .view-btn:hover {
-        background-color: #e7f3ff;
-        color: #007bff;
-    }
-    
-    .view-btn.active:hover {
-        background-color: #0056b3;
-        color: white;
-    }
     
     /* Forecast summary styling */
     .forecast-summary {
@@ -364,12 +338,6 @@
 
 <div class="controls">
     <input type="text" id="searchBox" class="search-box" placeholder="Search items (e.g. 'croissant', 'latte', 'tart')...">
-    
-    <div class="view-toggle">
-        <button class="view-btn active" data-view="table">Table View</button>
-        <button class="view-btn" data-view="grid">Grid View</button>
-        <button class="view-btn" data-view="list">List View</button>
-    </div>
 </div>
 
 <div id="plotsContainer">
