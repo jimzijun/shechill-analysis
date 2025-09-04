@@ -181,8 +181,9 @@ jobs:
           if [[ -n "$backup_image" ]]; then
             echo "Rolling back to: $backup_image"
             /usr/local/bin/docker run -d \
-              --log-driver syslog \
-              --log-opt syslog-address="udp://localhost:514" \
+              --log-driver json-file \
+              --log-opt max-size=100m \
+              --log-opt max-file=3 \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
               -p 8001:8000 \

@@ -86,8 +86,9 @@ resource "null_resource" "docker_build_and_deploy" {
         /usr/local/bin/docker stop ${var.container_name} || true
         /usr/local/bin/docker rm ${var.container_name} || true
         /usr/local/bin/docker run -d \
-          --log-driver syslog \
-          --log-opt syslog-address="udp://localhost:514" \
+          --log-driver json-file \
+          --log-opt max-size=100m \
+          --log-opt max-file=3 \
           --name ${var.container_name} \
           --restart unless-stopped \
           -p ${var.container_port}:8000 \
