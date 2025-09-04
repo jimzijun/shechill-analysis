@@ -24,7 +24,7 @@ from typing import Any, Dict, Optional
 from src.analysis import forecast_generator
 from src.analysis.quantity_analysis import QuantityAnalyzer
 from src.config_manager import get_config
-from src.logging_config import setup_daily_logger
+from src.logging_config import setup_logger
 
 # Import our components using proper src paths
 from src.square_client.square_api_client import SquareAPIClient
@@ -111,7 +111,7 @@ class DataUpdateManager:
 
     def _setup_logging(self):
         """Setup logging configuration"""
-        self.logger = setup_daily_logger("DataUpdateManager", "update_manager")
+        self.logger = setup_logger("DataUpdateManager")
 
     def get_update_status(self) -> Dict[str, Any]:
         """Get the current update status"""
@@ -821,7 +821,7 @@ def main():
     args = parser.parse_args()
 
     # Setup CLI logging
-    cli_logger = setup_daily_logger("DataUpdateManager-CLI", "data_update_manager_cli")
+    cli_logger = setup_logger("DataUpdateManager-CLI")
 
     # Check for access token
     access_token = os.environ.get("SQUARE_ACCESS_TOKEN")

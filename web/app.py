@@ -17,9 +17,9 @@ from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Set up logging using centralized config
-from src.logging_config import setup_console_logger
+from src.logging_config import setup_logger
 
-logger = setup_console_logger("WebApp")
+logger = setup_logger("WebApp")
 
 import pandas as pd  # noqa: E402
 from flask import (  # noqa: E402

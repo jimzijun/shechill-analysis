@@ -22,9 +22,9 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from src.logging_config import setup_rotating_logger
+from src.logging_config import setup_logger
 
-logger = setup_rotating_logger("PlotCache", "plot_cache.log", console=False)
+logger = setup_logger("PlotCache")
 
 
 class PlotCache:

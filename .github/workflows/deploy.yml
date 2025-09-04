@@ -180,13 +180,16 @@ jobs:
           
           if [[ -n "$backup_image" ]]; then
             echo "Rolling back to: $backup_image"
-            /usr/local/bin/docker run -d --name ${{ env.CONTAINER_NAME }} --restart unless-stopped \
+            /usr/local/bin/docker run -d \
+              --log-driver syslog \
+              --log-opt syslog-address="udp://localhost:514" \
+              --name ${{ env.CONTAINER_NAME }} \
+              --restart unless-stopped \
               -p 8001:8000 \
               -e SQUARE_ACCESS_TOKEN="${{ secrets.SQUARE_ACCESS_TOKEN }}" \
               -e SQUARE_LOCATION_ID="${{ secrets.SQUARE_LOCATION_ID }}" \
               -v /volume1/docker/shechill-analysis/config:/app/config \
               -v /volume1/docker/shechill-analysis/data:/app/data \
-              -v /volume1/docker/shechill-analysis/logs:/app/logs \
               "$backup_image"
               
             echo "Rollback completed"

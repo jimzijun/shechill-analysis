@@ -23,15 +23,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from src.config_manager import get_config
-from src.logging_config import setup_daily_logger
+from src.logging_config import setup_logger
 
 try:
     from square import Square
     from square.environment import SquareEnvironment
 except ImportError:
-    from src.logging_config import setup_console_logger
+    from src.logging_config import setup_logger
 
-    logger = setup_console_logger("SquareAPIClient")
+    logger = setup_logger("SquareAPIClient")
     logger.error("❌ Square SDK not installed. Install with: pip install squareup")
     sys.exit(1)
 
@@ -89,7 +89,7 @@ class SquareAPIClient:
 
     def _setup_logging(self):
         """Setup logging configuration"""
-        self.logger = setup_daily_logger("SquareAPIClient", "square_api")
+        self.logger = setup_logger("SquareAPIClient")
 
     def _ensure_directories(self):
         """Create necessary directories"""
@@ -414,9 +414,9 @@ def main():
     args = parser.parse_args()
 
     # Setup logging for CLI
-    from src.logging_config import setup_console_logger
+    from src.logging_config import setup_logger
 
-    cli_logger = setup_console_logger("SquareAPIClient-CLI")
+    cli_logger = setup_logger("SquareAPIClient-CLI")
 
     # Check for access token
     access_token = os.environ.get("SQUARE_ACCESS_TOKEN")

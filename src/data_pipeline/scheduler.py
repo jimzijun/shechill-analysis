@@ -24,7 +24,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from src.data_pipeline.data_update_manager import DataUpdateManager
-from src.logging_config import setup_daily_logger
+from src.logging_config import setup_logger
 
 
 class AutomationScheduler:
@@ -50,7 +50,7 @@ class AutomationScheduler:
 
     def setup_logging(self):
         """Setup logging for scheduler operations"""
-        self.logger = setup_daily_logger("AutomationScheduler", "scheduler")
+        self.logger = setup_logger("AutomationScheduler")
 
     def daily_full_pipeline(self):
         """Run complete daily pipeline: fetch, process, and generate forecasts"""
@@ -162,7 +162,7 @@ def main():
     args = parser.parse_args()
 
     # Setup logging for CLI
-    cli_logger = setup_daily_logger("Scheduler-CLI", "scheduler_cli")
+    cli_logger = setup_logger("Scheduler-CLI")
 
     try:
         scheduler = AutomationScheduler(args.data_dir)
