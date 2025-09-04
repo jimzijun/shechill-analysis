@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from src.logging_config import setup_daily_logger
+from src.logging_config import setup_logger
 
 
 class ForecastManager:
@@ -24,7 +24,7 @@ class ForecastManager:
     def __init__(self, forecast_dir: str = "data/forecasts"):
         """Initialize forecast manager with storage directory"""
         self.forecast_dir = Path(forecast_dir)
-        self.logger = setup_daily_logger("ForecastManager", "forecast_manager")
+        self.logger = setup_logger("ForecastManager")
         self.ensure_directories()
 
     def ensure_directories(self):
@@ -294,7 +294,7 @@ def get_forecast_manager() -> ForecastManager:
 
 if __name__ == "__main__":
     # Test forecast manager
-    test_logger = setup_daily_logger("ForecastManager-Test", "forecast_manager_test")
+    test_logger = setup_logger("ForecastManager-Test")
     test_logger.info("Forecast Manager Test")
     test_logger.info("=" * 40)
 

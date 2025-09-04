@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 
 import pytz
 
-from src.logging_config import setup_daily_logger
+from src.logging_config import setup_logger
 
 
 class ConfigManager:
@@ -24,7 +24,7 @@ class ConfigManager:
         """Initialize config manager with config file path"""
         self.config_file = Path(config_file)
         self._config: Optional[Dict[str, Any]] = None
-        self.logger = setup_daily_logger("ConfigManager", "config_manager")
+        self.logger = setup_logger("ConfigManager")
         self._load_config()
 
     def _load_config(self):
@@ -139,7 +139,7 @@ def get_config() -> ConfigManager:
 
 if __name__ == "__main__":
     # Test configuration loading
-    test_logger = setup_daily_logger("ConfigManager-Test", "config_manager_test")
+    test_logger = setup_logger("ConfigManager-Test")
     test_logger.info("Configuration Manager Test")
     test_logger.info("=" * 40)
 

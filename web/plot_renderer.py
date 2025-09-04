@@ -25,9 +25,9 @@ matplotlib.use("Agg")
 
 # Set up logging using centralized config
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from src.logging_config import setup_rotating_logger
+from src.logging_config import setup_logger
 
-logger = setup_rotating_logger("PlotRenderer", "plot_renderer.log", console=False)
+logger = setup_logger("PlotRenderer")
 
 # Set up matplotlib/seaborn styling
 plt.style.use("default")
