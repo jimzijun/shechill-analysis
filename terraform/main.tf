@@ -85,13 +85,16 @@ resource "null_resource" "docker_build_and_deploy" {
         /usr/local/bin/docker load < shechill-analysis.tar.gz
         /usr/local/bin/docker stop ${var.container_name} || true
         /usr/local/bin/docker rm ${var.container_name} || true
-        /usr/local/bin/docker run -d --name ${var.container_name} --restart unless-stopped \
+        /usr/local/bin/docker run -d \
+          --log-driver syslog \
+          --log-opt syslog-address="udp://localhost:514" \
+          --name ${var.container_name} \
+          --restart unless-stopped \
           -p ${var.container_port}:8000 \
           -e SQUARE_ACCESS_TOKEN="${var.square_access_token}" \
           -e SQUARE_LOCATION_ID="${var.square_location_id}" \
           -v ${var.persistent_data_path}/config:/app/config \
           -v ${var.persistent_data_path}/data:/app/data \
-          -v ${var.persistent_data_path}/logs:/app/logs \
           ${var.image_name}
         rm -f shechill-analysis.tar.gz
         cd ~

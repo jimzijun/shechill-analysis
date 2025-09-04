@@ -50,8 +50,19 @@ python -m src.data_pipeline.scheduler --daemon
 
 ### Docker
 ```bash
-# Build and run with scheduler + web dashboard
+# Build image
 docker build -t shechill-analysis .
+
+# Run with syslog logging (recommended for production)
+docker run -d \
+  --log-driver syslog \
+  --log-opt syslog-address="udp://localhost:514" \
+  --name shechill-analysis \
+  -e SQUARE_ACCESS_TOKEN=your_token \
+  -p 8000:8000 \
+  shechill-analysis
+
+# Basic run (development)
 docker run -e SQUARE_ACCESS_TOKEN=your_token -p 8000:8000 shechill-analysis
 ```
 
