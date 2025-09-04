@@ -186,7 +186,6 @@
     
     .confidence-fill {
         height: 100%;
-        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
         border-radius: 2px;
         transition: width 0.3s ease;
     }
@@ -310,7 +309,6 @@
     
     .confidence-fill-small {
         height: 100%;
-        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
         border-radius: 3px;
         transition: width 0.3s ease;
     }
@@ -451,6 +449,12 @@
 {% block extra_js %}
 <script>
     let allItems = {{ items|tojson }};
+    
+    // Generate confidence gradient with mask
+    function getConfidenceGradient(percentage) {
+        const maskPercent = percentage * 100;
+        return `background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%); -webkit-mask: linear-gradient(90deg, black 0%, black ${maskPercent}%, transparent ${maskPercent}%); mask: linear-gradient(90deg, black 0%, black ${maskPercent}%, transparent ${maskPercent}%)`;
+    }
     
     // Search functionality
     document.getElementById('searchBox').addEventListener('input', function(e) {
@@ -682,7 +686,7 @@
                         <td class="confidence-cell">
                             <div class="confidence-display">
                                 <div class="confidence-bar-small">
-                                    <div class="confidence-fill-small" style="width: ${summary.confidence_score * 100}%"></div>
+                                    <div class="confidence-fill-small" style="${getConfidenceGradient(summary.confidence_score)}"></div>
                                 </div>
                                 <span class="confidence-text">${Math.round(summary.confidence_score * 100)}%</span>
                             </div>
@@ -756,7 +760,7 @@
                                         <span class="trend-indicator ${trendClass}">${trendIcon}</span>
                                     </div>
                                     <div class="confidence-bar">
-                                        <div class="confidence-fill" style="width: ${summary.confidence_score * 100}%"></div>
+                                        <div class="confidence-fill" style="${getConfidenceGradient(summary.confidence_score)}"></div>
                                     </div>
                                 </div>
                             `;
