@@ -182,7 +182,9 @@ jobs:
             echo "Rolling back to: $backup_image"
             /usr/local/bin/docker run -d \
               --log-driver syslog \
-              --log-opt syslog-address="udp://localhost:514" \
+              --log-opt syslog-address="udp://host.docker.internal:514" \
+              --log-opt syslog-facility="local0" \
+              --log-opt tag="${{ env.CONTAINER_NAME }}" \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
               -p 8001:8000 \

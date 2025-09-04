@@ -87,7 +87,9 @@ resource "null_resource" "docker_build_and_deploy" {
         /usr/local/bin/docker rm ${var.container_name} || true
         /usr/local/bin/docker run -d \
           --log-driver syslog \
-          --log-opt syslog-address="udp://localhost:514" \
+          --log-opt syslog-address="udp://host.docker.internal:514" \
+          --log-opt syslog-facility="local0" \
+          --log-opt tag="${var.container_name}" \
           --name ${var.container_name} \
           --restart unless-stopped \
           -p ${var.container_port}:8000 \
