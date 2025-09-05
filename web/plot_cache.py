@@ -30,7 +30,7 @@ logger = setup_logger("PlotCache")
 class PlotCache:
     """Manages multi-layer caching for plot generation"""
 
-    def __init__(self, cache_dir: str = "data/plot_cache", max_memory_items: int = 50):
+    def __init__(self, cache_dir: str = "web/plot_cache", max_memory_items: int = 50):
         """
         Initialize plot cache system
 

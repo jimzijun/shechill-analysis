@@ -113,39 +113,54 @@ class PlotRenderer:
                         color="blue",
                     )
 
-                # Add forecast data
+                # Add complete predictions data (past and future)
                 (
-                    forecast_x,
-                    forecast_y,
-                    forecast_lower,
-                    forecast_upper,
-                    forecast_labels,
-                ) = self._extract_weekday_forecast(weekday, forecast_df, dates)
+                    all_pred_x,
+                    all_pred_y,
+                    all_pred_lower,
+                    all_pred_upper,
+                    all_pred_labels,
+                    future_start_idx,
+                ) = self._extract_weekday_all_predictions(weekday, forecast_df, dates)
 
-                if forecast_x and forecast_y:
-                    # Plot forecast line
+                if all_pred_x and all_pred_y:
+                    # Plot complete prediction line
                     ax.plot(
-                        forecast_x,
-                        forecast_y,
-                        "--",
+                        all_pred_x,
+                        all_pred_y,
+                        "-",
                         linewidth=2,
                         color="red",
-                        label="Forecast",
+                        alpha=0.8,
+                        label="Model Predictions",
                     )
+
+                    # Highlight future portion with dashed line
+                    if future_start_idx is not None and future_start_idx < len(all_pred_x):
+                        future_x = all_pred_x[future_start_idx:]
+                        future_y = all_pred_y[future_start_idx:]
+                        ax.plot(
+                            future_x,
+                            future_y,
+                            "--",
+                            linewidth=3,
+                            color="red",
+                            label="Future Forecast",
+                        )
 
                     # Plot confidence interval
                     ax.fill_between(
-                        forecast_x,
-                        forecast_lower,
-                        forecast_upper,
-                        alpha=0.3,
+                        all_pred_x,
+                        all_pred_lower,
+                        all_pred_upper,
+                        alpha=0.2,
                         color="red",
                         label="Confidence Interval",
                     )
 
                 # Set up axes
-                all_x = list(range(len(quantities))) + forecast_x
-                all_labels = date_labels + forecast_labels
+                all_x = list(range(len(quantities))) + (all_pred_x[len(quantities):] if all_pred_x else [])
+                all_labels = date_labels + (all_pred_labels[len(quantities):] if all_pred_labels else [])
 
                 ax.set_title(f"{weekday}", fontweight="bold")
                 ax.set_ylabel("Quantity Sold")
@@ -161,10 +176,15 @@ class PlotRenderer:
                 ax.set_ylim(bottom=0)
 
                 # Add statistics
-                self._add_statistics_text(ax, quantities, forecast_y)
+                next_forecast = (
+                    all_pred_y[future_start_idx]
+                    if all_pred_y and future_start_idx is not None and future_start_idx < len(all_pred_y)
+                    else None
+                )
+                self._add_statistics_text(ax, quantities, [next_forecast] if next_forecast else [])
 
                 # Add legend only to first subplot
-                if i == 0 and forecast_y:
+                if i == 0 and all_pred_y:
                     ax.legend(loc="upper right", fontsize=8)
 
             plt.tight_layout()
@@ -257,6 +277,115 @@ class PlotRenderer:
             logger.error(f"Error rendering simple plot for {item_name}: {e}")
             plt.close("all")
             return None
+
+    def _extract_weekday_all_predictions(
+        self, weekday: str, forecast_df: pd.DataFrame, historical_dates: list
+    ) -> Tuple[list, list, list, list, list, int]:
+        """Extract all prediction data (past and future) for a specific weekday"""
+        try:
+            # Map weekday names to numbers
+            weekday_map = {
+                "Monday": 0,
+                "Tuesday": 1,
+                "Wednesday": 2,
+                "Thursday": 3,
+                "Friday": 4,
+                "Saturday": 5,
+                "Sunday": 6,
+            }
+            target_weekday_num = weekday_map.get(weekday)
+
+            if target_weekday_num is None:
+                return [], [], [], [], [], None
+
+            # Ensure ds column is datetime
+            forecast_df = forecast_df.copy()
+            if "ds" in forecast_df.columns:
+                forecast_df["ds"] = pd.to_datetime(forecast_df["ds"])
+            else:
+                logger.error("No 'ds' column found in forecast data")
+                return [], [], [], [], [], None
+
+            # Filter all predictions for this specific weekday
+            weekday_predictions = forecast_df[forecast_df["ds"].dt.dayofweek == target_weekday_num].copy()
+
+            if weekday_predictions.empty:
+                return [], [], [], [], [], None
+
+            # Get last historical date to determine future start
+            last_date = None
+            if historical_dates:
+                last_date_str = historical_dates[-1] if isinstance(historical_dates[-1], str) else None
+                if last_date_str:
+                    try:
+                        import re
+                        match = re.match(r"(\d+/\d+)", last_date_str)
+                        if match:
+                            date_part = match.group(1)
+                            last_date = pd.to_datetime(f"2025/{date_part}")
+                        else:
+                            last_date = pd.to_datetime(last_date_str)
+                    except Exception:
+                        last_date = pd.Timestamp("2025-08-30")
+
+            if last_date is None:
+                last_date = pd.Timestamp("2025-08-30")
+
+            # Prepare data for plotting - align with historical data positions
+            all_pred_x = []
+            all_pred_y = []
+            all_pred_lower = []
+            all_pred_upper = []
+            all_pred_labels = []
+            future_start_idx = None
+
+            # First, add predictions that align with historical dates
+            for i, hist_date in enumerate(historical_dates):
+                # Find closest prediction date
+                for _, pred_row in weekday_predictions.iterrows():
+                    pred_date_str = pred_row["ds"].strftime("%m/%d")
+                    hist_date_match = re.match(r"(\d+/\d+)", str(hist_date))
+                    if hist_date_match:
+                        hist_date_str = hist_date_match.group(1)
+                        # Convert to MM/DD format for comparison
+                        try:
+                            month, day = hist_date_str.split('/')
+                            hist_formatted = f"{int(month):02d}/{int(day):02d}"
+                            if pred_date_str == hist_formatted:
+                                all_pred_x.append(i)
+                                all_pred_y.append(pred_row["yhat"])
+                                all_pred_lower.append(pred_row["yhat_lower"])
+                                all_pred_upper.append(pred_row["yhat_upper"])
+                                all_pred_labels.append(hist_date)
+                                break
+                        except Exception:
+                            continue
+
+            # Then add future predictions
+            future_predictions = weekday_predictions[weekday_predictions["ds"] > last_date].head(4)
+            if not future_predictions.empty:
+                future_start_idx = len(all_pred_x)
+                start_idx = len(historical_dates)
+
+                for i, (_, pred_row) in enumerate(future_predictions.iterrows()):
+                    all_pred_x.append(start_idx + i)
+                    all_pred_y.append(pred_row["yhat"])
+                    all_pred_lower.append(pred_row["yhat_lower"])
+                    all_pred_upper.append(pred_row["yhat_upper"])
+                    all_pred_labels.append(f"F+{i+1}")
+
+            return (
+                all_pred_x,
+                all_pred_y,
+                all_pred_lower,
+                all_pred_upper,
+                all_pred_labels,
+                future_start_idx,
+            )
+
+        except Exception as e:
+            logger.error(f"Error extracting all predictions for {weekday}: {e}")
+            return [], [], [], [], [], None
 
     def _extract_weekday_forecast(
         self, weekday: str, forecast_df: pd.DataFrame, historical_dates: list
