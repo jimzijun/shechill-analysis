@@ -159,8 +159,8 @@ class PlotRenderer:
                     )
 
                 # Set up axes
-                all_x = list(range(len(quantities))) + (all_pred_x[len(quantities):] if all_pred_x else [])
-                all_labels = date_labels + (all_pred_labels[len(quantities):] if all_pred_labels else [])
+                all_x = list(range(len(quantities))) + (all_pred_x[len(quantities) :] if all_pred_x else [])
+                all_labels = date_labels + (all_pred_labels[len(quantities) :] if all_pred_labels else [])
 
                 ax.set_title(f"{weekday}", fontweight="bold")
                 ax.set_ylabel("Quantity Sold")
@@ -319,6 +319,7 @@ class PlotRenderer:
                 if last_date_str:
                     try:
                         import re
+
                         match = re.match(r"(\d+/\d+)", last_date_str)
                         if match:
                             date_part = match.group(1)
@@ -349,7 +350,7 @@ class PlotRenderer:
                         hist_date_str = hist_date_match.group(1)
                         # Convert to MM/DD format for comparison
                         try:
-                            month, day = hist_date_str.split('/')
+                            month, day = hist_date_str.split("/")
                             hist_formatted = f"{int(month):02d}/{int(day):02d}"
                             if pred_date_str == hist_formatted:
                                 all_pred_x.append(i)
